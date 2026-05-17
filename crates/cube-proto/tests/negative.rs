@@ -9,7 +9,9 @@
 
 use serde_json::json;
 
-use cube_proto::{CubeErrno, Event, MAX_MESSAGE_BYTES, ParamValue, Request, Response, enforce_max_size};
+use cube_proto::{
+    CubeErrno, Event, MAX_MESSAGE_BYTES, ParamValue, Request, Response, enforce_max_size,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Missing required fields  (SDS §5.3 — request envelope)

@@ -609,7 +609,12 @@ fn config_reloaded_event_roundtrips_arch_7_0() {
 
 #[test]
 fn damage_roundtrips_sds_6_1() {
-    let d = Damage { x: 0, y: 1, w: 384, h: 64 };
+    let d = Damage {
+        x: 0,
+        y: 1,
+        w: 384,
+        h: 64,
+    };
     let v = serde_json::to_value(&d).unwrap();
     assert_eq!(v, json!({"x": 0, "y": 1, "w": 384, "h": 64}));
     let d2: Damage = serde_json::from_value(v).unwrap();
@@ -681,9 +686,16 @@ fn paramvalue_vec2_roundtrips_sds_5_4() {
 
 #[test]
 fn paramvalue_vec3_roundtrips_sds_5_4() {
-    let p = ParamValue::Vec3(Vec3 { x: 1.0, y: 2.0, z: 3.0 });
+    let p = ParamValue::Vec3(Vec3 {
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+    });
     let v = serde_json::to_value(&p).unwrap();
-    assert_eq!(v, json!({"type": "vec3", "value": {"x": 1.0, "y": 2.0, "z": 3.0}}));
+    assert_eq!(
+        v,
+        json!({"type": "vec3", "value": {"x": 1.0, "y": 2.0, "z": 3.0}})
+    );
     let p2: ParamValue = serde_json::from_value(v).unwrap();
     assert_eq!(p, p2);
 }
