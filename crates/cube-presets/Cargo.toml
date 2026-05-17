@@ -1,0 +1,25 @@
+[package]
+name = "cube-presets"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Preset TOML I/O with flock-protected write-temp-rename and fsync ordering."
+
+[lints]
+workspace = true
+
+[dependencies]
+cube-proto = { path = "../cube-proto" }
+cube-config = { path = "../cube-config" }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+nix = { version = "0.29", features = ["fs"] }
+thiserror = "2"
+chrono = { version = "0.4", default-features = false, features = ["serde", "now"] }
+
+[dev-dependencies]
+tempfile = "3"
+proptest = "1"
+serde_json = "1"
+nix = { version = "0.29", features = ["fs"] }

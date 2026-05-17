@@ -1,0 +1,18 @@
+[meta]
+app = "x"
+schema_version = 1
+preset_name = "warnings"
+created = "2026-05-17T00:00:00Z"
+version = "1.0"
+
+[params]
+# In-range stays as-is.
+brightness = { type = "int", value = 5 }
+# Out of [0, 10] range -> CLAMPED.
+speed = { type = "int", value = 999 }
+# Schema marks key `gamma` as readonly -> READONLY_DROPPED.
+gamma = { type = "float", value = 2.2 }
+# Schema marks `device_id` as shareable=false -> NON_SHAREABLE_DROPPED.
+device_id = { type = "string", value = "device-1" }
+# Not declared in schema -> UNKNOWN_DROPPED.
+old_param = { type = "int", value = 42 }

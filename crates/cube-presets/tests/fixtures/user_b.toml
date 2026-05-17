@@ -1,0 +1,11 @@
+[meta]
+app = "x"
+schema_version = 1
+preset_name = "b"
+author = "user"
+description = "user override of b"
+created = "2026-05-17T00:00:00Z"
+version = "1.0"
+
+[params]
+speed = { type = "int", value = 7 }

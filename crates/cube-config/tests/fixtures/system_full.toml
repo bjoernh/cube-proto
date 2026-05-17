@@ -1,0 +1,45 @@
+[display]
+# DRM device selection. /dev/dri/cardN numbering is not stable on Pi
+# (VC4 HDMI + cube driver + vkms + render nodes can re-order across boots).
+# cubed enumerates DRM devices and picks the one whose driver name matches
+# `drm_driver` and that exposes a connector matching `connector`.
+drm_driver  = "cube-fpga-rpispi"   # for dev: "vkms"
+connector   = "Cube-1"             # for dev: "Writeback-1" or similar
+mode        = "384x64@60"          # parsed and verified against modes the driver exposes
+
+refresh_hz   = 60
+spi_clock_hz = 35_000_000
+# bitstream compatibility range is compiled into the driver, not configurable here;
+# shown for documentation. The driver refuses probe on any version outside [min, max].
+# bitstream_min_version = 1
+# bitstream_max_version = 1
+
+[network]
+# Control plane (JSON Lines)
+tcp_control_enabled = true
+tcp_control_bind = "127.0.0.1"    # default — loopback only; LAN-exposed forms log a loud warning
+tcp_control_port = 2018
+
+# Frame stream (binary)
+remote_render_enabled = true
+remote_render_bind = "127.0.0.1"  # default — loopback only (Mac dev path via SSH tunnel)
+remote_render_port = 2017
+
+[input]
+# Pattern matched against evdev device NAME via udev monitor.
+# Wildcards: shell-style globs.
+system_controller_name_pattern = "8BitDo*"
+key_back   = "BTN_SELECT"
+key_home   = "BTN_START"
+key_power  = "BTN_MODE"
+
+[imu]
+xy_rotation_deg = 0.0
+xz_rotation_deg = 45.0
+yz_rotation_deg = 0.0
+
+[transitions]
+mode = "hard_cut"                 # v1: hard_cut only
+
+[power]
+idle_blank_after_sec = 0          # 0 = disabled. Only applies while launcher is focused (§5.12).

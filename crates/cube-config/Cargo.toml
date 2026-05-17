@@ -1,0 +1,22 @@
+[package]
+name = "cube-config"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TOML loaders for /etc/cube/system.toml, manifest.toml, and schema.toml."
+
+[lints]
+workspace = true
+
+[dependencies]
+cube-proto = { path = "../cube-proto" }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+arc-swap = "1"
+thiserror = "2"
+regex = "1"
+semver = { version = "1", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"
