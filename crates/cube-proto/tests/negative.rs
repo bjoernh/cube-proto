@@ -1,0 +1,241 @@
+//! Negative tests: malformed input must produce a structured error, never a
+//! panic. Covers missing required fields, wrong-typed fields, unknown extra
+//! fields (deny on requests per the test-plan default; allow on responses),
+//! and the oversize-message helper from `lib.rs`.
+//!
+//! All assertions exercise the *public* serde-derived behaviour. The
+//! implementation agent will satisfy these via `#[serde(deny_unknown_fields)]`
+//! on request bodies and untagged-but-permissive responses (see lib.rs).
+
+use serde_json::json;
+
+use cube_proto::{CubeErrno, Event, MAX_MESSAGE_BYTES, ParamValue, Request, Response, enforce_max_size};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Missing required fields  (SDS §5.3 — request envelope)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn hello_missing_protocol_version_is_err_sds_5_3() {
+    let j = json!({"id": 1, "cmd": "hello"});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "hello without protocol_version must fail");
+}
+
+#[test]
+fn register_missing_name_is_err_sds_5_3() {
+    let j = json!({"id": 2, "cmd": "register"});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "register without name must fail");
+}
+
+#[test]
+fn buffer_register_missing_size_is_err_sds_6_1() {
+    let j = json!({
+        "id": 10,
+        "cmd": "buffer.register",
+        "buffer_id": 0,
+        "format": "RGB565",
+        "width": 384,
+        "height": 64,
+        "stride": 768
+        // missing "size"
+    });
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "buffer.register without size must fail");
+}
+
+#[test]
+fn present_missing_seq_is_err_sds_6_1() {
+    let j = json!({"id": 11, "cmd": "present", "buffer_id": 0});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "present without seq must fail");
+}
+
+#[test]
+fn set_missing_value_is_err_sds_5_4() {
+    let j = json!({"id": 22, "cmd": "set", "app": "snake", "key": "speed"});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "set without value must fail");
+}
+
+#[test]
+fn brightness_set_missing_value_is_err_sds_5_10() {
+    let j = json!({"id": 40, "cmd": "brightness.set"});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "brightness.set without value must fail");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wrong-typed fields
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn present_seq_wrong_type_is_err_sds_6_1() {
+    let j = json!({"id": 11, "cmd": "present", "seq": "100", "buffer_id": 0});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "present.seq must be integer");
+}
+
+#[test]
+fn buffer_register_format_unknown_value_is_err_sds_6_1() {
+    let j = json!({
+        "id": 10,
+        "cmd": "buffer.register",
+        "buffer_id": 0,
+        "format": "RGBA9999",
+        "width": 384,
+        "height": 64,
+        "stride": 768,
+        "size": 49152
+    });
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "unknown format must fail");
+}
+
+#[test]
+fn paramvalue_int_with_string_payload_is_err_sds_5_4() {
+    let j = json!({"type": "int", "value": "not-an-int"});
+    let r: Result<ParamValue, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "ParamValue::Int requires integer value");
+}
+
+#[test]
+fn paramvalue_unknown_type_tag_is_err_sds_5_4() {
+    let j = json!({"type": "matrix", "value": [[0]]});
+    let r: Result<ParamValue, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "unknown ParamValue type tag must fail");
+}
+
+#[test]
+fn buffer_release_unknown_reason_is_err_sds_5_1() {
+    let j = json!({
+        "event": "buffer.release",
+        "buffer_id": 0,
+        "seq": 100,
+        "reason": "exploded"
+    });
+    let r: Result<Event, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "buffer.release with unknown reason must fail");
+}
+
+#[test]
+fn power_state_unknown_state_is_err_sds_5_12() {
+    let j = json!({"event": "power.state", "state": "dimmed"});
+    let r: Result<Event, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "power.state with unknown state must fail");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unknown extra fields — requests deny, responses allow.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn request_with_unknown_field_is_err_sds_5_3() {
+    let j = json!({
+        "id": 5,
+        "cmd": "status",
+        "app": "snake",
+        "bogus_field": "x"
+    });
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(
+        r.is_err(),
+        "requests use #[serde(deny_unknown_fields)] — extras must fail"
+    );
+}
+
+#[test]
+fn response_with_unknown_field_is_ok_sds_5_3() {
+    // Daemon must be free to add forward-compatible fields to responses.
+    let j = json!({
+        "id": 7,
+        "ok": true,
+        "result": {"any": "value"},
+        "server_added_later": "future"
+    });
+    let r: Result<Response, _> = serde_json::from_value(j);
+    assert!(
+        r.is_ok(),
+        "responses tolerate unknown fields for forward-compat"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unknown command / event tag
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn unknown_request_cmd_is_err_sds_5_3() {
+    let j = json!({"id": 1, "cmd": "haxx"});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "unknown cmd must fail");
+}
+
+#[test]
+fn unknown_event_tag_is_err_sds_5_3() {
+    let j = json!({"event": "ghost"});
+    let r: Result<Event, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "unknown event tag must fail");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAX_MESSAGE_BYTES helper  (SDS §5.3 / §6.1 — 64 KiB cap)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn max_message_bytes_is_64_kib_sds_6_1() {
+    assert_eq!(MAX_MESSAGE_BYTES, 65_536);
+}
+
+#[test]
+fn enforce_max_size_accepts_small_buffer_sds_6_1() {
+    let bytes = b"{\"id\":1,\"cmd\":\"list\"}";
+    assert!(enforce_max_size(bytes).is_ok());
+}
+
+#[test]
+fn enforce_max_size_accepts_exact_limit_sds_6_1() {
+    let bytes = vec![b' '; MAX_MESSAGE_BYTES];
+    assert!(enforce_max_size(&bytes).is_ok());
+}
+
+#[test]
+fn enforce_max_size_rejects_oversize_sds_6_1() {
+    let bytes = vec![b' '; MAX_MESSAGE_BYTES + 1];
+    let r = enforce_max_size(&bytes);
+    assert!(r.is_err(), "oversize buffer must fail");
+}
+
+#[test]
+fn realistic_wire_messages_fit_under_limit_sds_6_1() {
+    // Sanity: every routine wire object encodes well under 64 KiB.
+    let samples = [
+        json!({"id": 1, "cmd": "hello", "protocol_version": "1.0.0"}),
+        json!({
+            "id": 10, "cmd": "buffer.register", "buffer_id": 0,
+            "format": "RGB565", "width": 384, "height": 64,
+            "stride": 768, "size": 49152
+        }),
+        json!({"id": 11, "cmd": "present", "seq": 100, "buffer_id": 0,
+               "damage": {"x": 0, "y": 0, "w": 384, "h": 64}}),
+        json!({"event": "buffer.release", "buffer_id": 0, "seq": 1,
+               "reason": "displayed"}),
+    ];
+    for s in &samples {
+        let bytes = serde_json::to_vec(s).unwrap();
+        assert!(bytes.len() < MAX_MESSAGE_BYTES, "sample exceeded cap");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sanity: every CubeErrno is reachable, including the request-policy code.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn ebadreq_is_the_canonical_oversize_code_sds_5_3() {
+    // SDS §5.3: "Messages exceeding the limit return EBADREQ."
+    // The implementation agent must make `enforce_max_size`'s error carry
+    // or be representable as EBADREQ. This test pins the variant exists.
+    let _ = CubeErrno::EBADREQ;
+}
