@@ -2,8 +2,17 @@
 //!
 //! See SDS §6.4 (system.toml example), §7.2 (manifest format), §5.4
 //! (schema format), and ARCH §4.11 (SIGHUP reload pattern).
-//!
-//! Wave 2 implementation will land in this crate; this stub exists so the
-//! red tests can reference the module by name.
 
-#![allow(dead_code)]
+#![deny(warnings)]
+
+mod manifest;
+mod schema;
+mod system;
+
+pub use manifest::{AppSection, Manifest, ManifestCategory, RequiresSection, load_manifest};
+pub use schema::{ParamDef, ParamType, Schema, SchemaBuilder, UiMeta, load_schema};
+pub use system::{
+    ConfigError, DisplayConfig, ImuConfig, InputConfig, NetworkConfig, PowerConfig,
+    SystemConfig, SystemConfigHandle, TransitionsConfig, ValidationReport, ValidationWarning,
+    load_system,
+};
