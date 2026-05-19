@@ -7,16 +7,20 @@
 //! `SCM_RIGHTS`) lives in the daemon and client crates that consume these
 //! types.
 
+pub mod doctor;
 pub mod error;
 pub mod event;
 pub mod request;
 pub mod response;
+pub mod status;
 pub mod value;
 
+pub use doctor::{CheckLevel, CheckResult, DoctorReportPayload};
 pub use error::{CubeErrno, CubeError};
 pub use event::Event;
 pub use request::Request;
 pub use response::{Response, ResponseBody};
+pub use status::{CubedStatus, DisplayStatus, FramesDropped, PerAppStatus, StatusReport};
 pub use value::{Color, Damage, Format, ParamValue, Vec2, Vec3};
 
 /// Maximum permitted wire-message size (SDS §5.3 / §6.1).
