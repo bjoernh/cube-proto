@@ -31,6 +31,16 @@ pub enum PowerState {
     Blanked,
 }
 
+/// Reason a presented frame was dropped (SDS §6.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PresentDroppedReason {
+    Replaced,
+    Dropped,
+    FocusLost,
+    Blanked,
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event enum
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,4 +117,20 @@ pub enum Event {
 
     #[serde(rename = "config.reloaded")]
     ConfigReloaded,
+
+    // ── Remote rendering ─────────────────────────────────────────────────────
+    #[serde(rename = "present.dropped")]
+    PresentDropped { seq: u64, reason: PresentDroppedReason },
+
+    #[serde(rename = "remote.frames_dropped")]
+    RemoteFramesDropped { client: String, dropped: u64, since_seq: u64 },
+
+    #[serde(rename = "client.stats")]
+    ClientStats {
+        client: String,
+        remote_sender_dropped: u64,
+        last_seq: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        video_latency_us: Option<u64>,
+    },
 }

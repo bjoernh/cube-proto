@@ -25,7 +25,23 @@ pub enum Request {
     Hello { id: u64, protocol_version: String },
 
     #[serde(rename = "register")]
-    Register { id: u64, name: String, mode: String },
+    Register {
+        id: u64,
+        name: String,
+        mode: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_token: Option<String>,
+    },
+
+    #[serde(rename = "hello.frame")]
+    HelloFrame {
+        id: u64,
+        client: String,
+        session_token: String,
+        format: String,
+        width: u32,
+        height: u32,
+    },
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     #[serde(rename = "list")]

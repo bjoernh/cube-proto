@@ -10,8 +10,10 @@
 pub mod doctor;
 pub mod error;
 pub mod event;
+pub mod frame_header;
 pub mod request;
 pub mod response;
+pub mod session_token;
 pub mod status;
 pub mod value;
 
@@ -25,6 +27,9 @@ pub use value::{Color, Damage, Format, ParamValue, Vec2, Vec3};
 
 /// Maximum permitted wire-message size (SDS §5.3 / §6.1).
 pub const MAX_MESSAGE_BYTES: usize = 65_536;
+
+/// Expected payload size for a single remote frame (SDS §6.2).
+pub const REMOTE_FRAME_PAYLOAD_BYTES: usize = 49_152;
 
 /// Errors returned by this crate's utility helpers.
 #[derive(Debug, thiserror::Error)]

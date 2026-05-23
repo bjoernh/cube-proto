@@ -20,6 +20,14 @@ pub struct Response {
     pub body: ResponseBody,
 }
 
+/// Response to a `hello.frame` handshake (SDS §6.2).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HelloFrameResponse {
+    pub max_inflight: u32,
+    pub policy: String,
+    pub expected_payload_bytes: u32,
+}
+
 /// Body discriminated by which optional keys are present.
 ///
 /// `Error` must be listed first in the untagged enum so that serde tries it

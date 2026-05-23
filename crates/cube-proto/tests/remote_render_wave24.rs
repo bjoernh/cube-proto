@@ -326,6 +326,7 @@ fn seq_guard_rejects_backwards_sds_6_2_seq() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn remote_frame_payload_bytes_constant_sds_6_2_layout() {
     assert_eq!(cube_proto::REMOTE_FRAME_PAYLOAD_BYTES, 49_152);
     // sanity: REMOTE_FRAME_PAYLOAD_BYTES is a separate envelope from the JSON

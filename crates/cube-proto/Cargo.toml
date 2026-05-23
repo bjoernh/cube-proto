@@ -10,11 +10,11 @@ description = "Wire-protocol types (JSON requests/responses/events) and shared e
 workspace = true
 
 [dependencies]
+base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
-base64 = "0.22"
 proptest = "1"
 serde_test = "1"
