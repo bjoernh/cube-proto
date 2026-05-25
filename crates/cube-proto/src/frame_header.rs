@@ -4,9 +4,9 @@
 //! 16-byte `FrameHeader` encoded in little-endian byte order.
 
 /// Magic bytes identifying a valid frame header.
-/// `0x43554245` encodes the ASCII string `"CUBE"` in big-endian; on the wire
-/// it is stored little-endian as `[0x45, 0x42, 0x55, 0x43]`.
-pub const FRAME_HEADER_MAGIC: u32 = 0x4355_4245;
+/// `0x43554246` encodes the ASCII string `"CUBF"` in big-endian; on the wire
+/// it is stored little-endian as `[0x46, 0x42, 0x55, 0x43]`.
+pub const FRAME_HEADER_MAGIC: u32 = 0x4355_4246;
 
 /// Byte length of the encoded frame header.
 pub const FRAME_HEADER_BYTES: usize = 16;
@@ -18,8 +18,6 @@ pub enum FrameHeaderError {
     ShortBuffer,
     #[error("magic bytes do not match FRAME_HEADER_MAGIC")]
     BadMagic,
-    #[error("frame size field does not match REMOTE_FRAME_PAYLOAD_BYTES")]
-    BadSize,
     #[error("reserved field is non-zero")]
     NonZeroReserved,
     #[error("sequence number went backwards")]
@@ -29,12 +27,12 @@ pub enum FrameHeaderError {
 /// 16-byte binary frame header.
 ///
 /// Layout (all fields little-endian, 4 bytes each):
-/// `[magic u32][seq u32][size u32][reserved u32]`
+/// `[magic u32][seq u32][reserved u32][reserved u32]`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FrameHeader {
     pub magic: u32,
     pub seq: u32,
-    pub size: u32,
+    pub reserved2: u32,
     pub reserved: u32,
 }
 
@@ -44,7 +42,7 @@ impl FrameHeader {
         let mut buf = [0u8; FRAME_HEADER_BYTES];
         buf[0..4].copy_from_slice(&self.magic.to_le_bytes());
         buf[4..8].copy_from_slice(&self.seq.to_le_bytes());
-        buf[8..12].copy_from_slice(&self.size.to_le_bytes());
+        buf[8..12].copy_from_slice(&self.reserved2.to_le_bytes());
         buf[12..16].copy_from_slice(&self.reserved.to_le_bytes());
         buf
     }
@@ -60,19 +58,19 @@ impl FrameHeader {
         }
         let magic = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
         let seq = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
-        let size = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+        let reserved2 = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
         let reserved = u32::from_le_bytes(bytes[12..16].try_into().unwrap());
 
         if magic != FRAME_HEADER_MAGIC {
             return Err(FrameHeaderError::BadMagic);
         }
-        if size != crate::REMOTE_FRAME_PAYLOAD_BYTES as u32 {
-            return Err(FrameHeaderError::BadSize);
+        if reserved2 != 0 {
+            return Err(FrameHeaderError::NonZeroReserved);
         }
         if reserved != 0 {
             return Err(FrameHeaderError::NonZeroReserved);
         }
-        Ok(Self { magic, seq, size, reserved })
+        Ok(Self { magic, seq, reserved2, reserved })
     }
 }
 

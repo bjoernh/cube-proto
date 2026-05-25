@@ -31,12 +31,12 @@ pub enum PowerState {
     Blanked,
 }
 
-/// Reason a presented frame was dropped (SDS §6.2).
+/// Reason a presented frame was dropped (SDS v5 §6.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PresentDroppedReason {
-    Replaced,
-    Dropped,
+    TooLate,
+    Fragmented,
     FocusLost,
     Blanked,
 }
@@ -119,6 +119,14 @@ pub enum Event {
     ConfigReloaded,
 
     // ── Remote rendering ─────────────────────────────────────────────────────
+    #[serde(rename = "frame_stream.bound")]
+    FrameStreamBound {
+        max_inflight: u32,
+        policy: String,
+        expected_payload_bytes: u32,
+        mtu_hint: String,
+    },
+
     #[serde(rename = "present.dropped")]
     PresentDropped { seq: u64, reason: PresentDroppedReason },
 

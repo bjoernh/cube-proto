@@ -17,7 +17,6 @@ use serde_json::{Value, json};
 use cube_proto::frame_header::{
     FRAME_HEADER_BYTES, FRAME_HEADER_MAGIC, FrameHeader, FrameHeaderError, SeqGuard,
 };
-use cube_proto::response::HelloFrameResponse;
 use cube_proto::session_token::{SessionTokenError, validate as validate_session_token};
 use cube_proto::{Event, REMOTE_FRAME_PAYLOAD_BYTES, Request};
 
@@ -48,62 +47,29 @@ fn roundtrip_event(j: Value) -> Value {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. Request::HelloFrame  (SDS §6.1 / §6.2 handshake)
+// 1. Event::PresentDropped  (SDS §6.2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn hello_frame_roundtrips_sds_6_2_handshake() {
-    let j = json!({
-        "id": 7,
-        "cmd": "hello.frame",
-        "client": "snake",
-        "session_token": "abcdefghijklmnopqrstuvwxyz012345",
-        "format": "rgb565",
-        "width": 384,
-        "height": 64,
-    });
-    roundtrip_request(j);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. HelloFrameResponse  (SDS §6.2)
-// ─────────────────────────────────────────────────────────────────────────────
-
-#[test]
-fn hello_frame_response_roundtrips_sds_6_2_handshake() {
-    let j = json!({
-        "max_inflight": 2,
-        "policy": "latest-frame-wins",
-        "expected_payload_bytes": 49152,
-    });
-    let r: HelloFrameResponse =
-        serde_json::from_value(j.clone()).expect("HelloFrameResponse decode");
-    let back = serde_json::to_value(&r).expect("HelloFrameResponse encode");
-    assert_eq!(back, j, "HelloFrameResponse did not round-trip");
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Event::PresentDropped  (SDS §6.2)
-// ─────────────────────────────────────────────────────────────────────────────
-
-#[test]
-fn present_dropped_replaced_roundtrips_sds_6_2_present() {
-    let j = json!({
+fn present_dropped_too_late_roundtrips_sds_6_2() {
+    let j = serde_json::json!({
         "event": "present.dropped",
-        "seq": 42,
-        "reason": "replaced",
+        "seq": 99,
+        "reason": "too_late"
     });
-    roundtrip_event(j);
+    let e: Event = serde_json::from_value(j.clone()).expect("decode");
+    assert_eq!(serde_json::to_value(&e).unwrap(), j);
 }
 
 #[test]
-fn present_dropped_dropped_roundtrips_sds_6_2_present() {
-    let j = json!({
+fn present_dropped_fragmented_roundtrips_sds_6_2() {
+    let j = serde_json::json!({
         "event": "present.dropped",
-        "seq": 43,
-        "reason": "dropped",
+        "seq": 99,
+        "reason": "fragmented"
     });
-    roundtrip_event(j);
+    let e: Event = serde_json::from_value(j.clone()).expect("decode");
+    assert_eq!(serde_json::to_value(&e).unwrap(), j);
 }
 
 #[test]
@@ -219,14 +185,14 @@ fn good_header(seq: u32) -> FrameHeader {
     FrameHeader {
         magic: FRAME_HEADER_MAGIC,
         seq,
-        size: 49_152,
+        reserved2: 0,
         reserved: 0,
     }
 }
 
 #[test]
 fn frame_header_constants_sds_6_2_layout() {
-    assert_eq!(FRAME_HEADER_MAGIC, 0x4355_4245, "magic = 'CUBE' big-endian");
+    assert_eq!(FRAME_HEADER_MAGIC, 0x4355_4246, "magic = 'CUBF' big-endian");
     assert_eq!(FRAME_HEADER_BYTES, 16, "header is exactly 16 bytes");
 }
 
@@ -238,7 +204,7 @@ fn frame_header_encode_decode_roundtrips_sds_6_2_layout() {
     let h2 = FrameHeader::decode(&bytes).expect("decode good header");
     assert_eq!(h2.magic, h.magic);
     assert_eq!(h2.seq, h.seq);
-    assert_eq!(h2.size, h.size);
+    assert_eq!(h2.reserved2, h.reserved2);
     assert_eq!(h2.reserved, h.reserved);
 }
 
@@ -246,10 +212,10 @@ fn frame_header_encode_decode_roundtrips_sds_6_2_layout() {
 fn frame_header_encodes_little_endian_magic_sds_6_2_layout() {
     let h = good_header(1);
     let bytes = h.encode();
-    // 0x43554245 little-endian = [0x45, 0x42, 0x55, 0x43]
+    // 0x43554246 little-endian = [0x46, 0x42, 0x55, 0x43]
     assert_eq!(
         &bytes[..4],
-        &[0x45, 0x42, 0x55, 0x43],
+        &[0x46, 0x42, 0x55, 0x43],
         "magic must be little-endian on the wire"
     );
 }
@@ -259,7 +225,7 @@ fn frame_header_rejects_bad_magic_sds_6_2_layout() {
     let h = FrameHeader {
         magic: 0xDEAD_BEEF,
         seq: 1,
-        size: 49_152,
+        reserved2: 0,
         reserved: 0,
     };
     let bytes = h.encode();
@@ -268,31 +234,33 @@ fn frame_header_rejects_bad_magic_sds_6_2_layout() {
 }
 
 #[test]
-fn frame_header_rejects_bad_size_sds_6_2_layout() {
+fn frame_header_rejects_nonzero_reserved_sds_6_2_layout() {
+    // Non-zero at offset 8 (reserved2)
     let h = FrameHeader {
         magic: FRAME_HEADER_MAGIC,
         seq: 1,
-        size: 10_000,
+        reserved2: 1,
         reserved: 0,
     };
     let bytes = h.encode();
-    let err = FrameHeader::decode(&bytes).expect_err("bad size must error");
-    assert!(matches!(err, FrameHeaderError::BadSize), "got {err:?}");
-}
-
-#[test]
-fn frame_header_rejects_nonzero_reserved_sds_6_2_layout() {
-    let h = FrameHeader {
-        magic: FRAME_HEADER_MAGIC,
-        seq: 1,
-        size: 49_152,
-        reserved: 1,
-    };
-    let bytes = h.encode();
-    let err = FrameHeader::decode(&bytes).expect_err("nonzero reserved must error");
+    let err = FrameHeader::decode(&bytes).expect_err("nonzero reserved2 must error");
     assert!(
         matches!(err, FrameHeaderError::NonZeroReserved),
         "got {err:?}"
+    );
+
+    // Non-zero at offset 12 (reserved)
+    let h2 = FrameHeader {
+        magic: FRAME_HEADER_MAGIC,
+        seq: 1,
+        reserved2: 0,
+        reserved: 1,
+    };
+    let bytes2 = h2.encode();
+    let err2 = FrameHeader::decode(&bytes2).expect_err("nonzero reserved must error");
+    assert!(
+        matches!(err2, FrameHeaderError::NonZeroReserved),
+        "got {err2:?}"
     );
 }
 
@@ -375,4 +343,21 @@ fn session_token_rejects_empty_sds_6_2_token() {
         ),
         "got {err:?}"
     );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. Event::FrameStreamBound  (SDS v5 §6.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn frame_stream_bound_event_roundtrips_sds_6_2() {
+    let j = serde_json::json!({
+        "event": "frame_stream.bound",
+        "max_inflight": 1,
+        "policy": "latest-frame-wins",
+        "expected_payload_bytes": 49152,
+        "mtu_hint": "jumbo_recommended"
+    });
+    let e: Event = serde_json::from_value(j.clone()).expect("decode");
+    assert_eq!(serde_json::to_value(&e).unwrap(), j);
 }

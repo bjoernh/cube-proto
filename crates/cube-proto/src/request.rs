@@ -33,16 +33,6 @@ pub enum Request {
         session_token: Option<String>,
     },
 
-    #[serde(rename = "hello.frame")]
-    HelloFrame {
-        id: u64,
-        client: String,
-        session_token: String,
-        format: String,
-        width: u32,
-        height: u32,
-    },
-
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     #[serde(rename = "list")]
     List { id: u64 },
