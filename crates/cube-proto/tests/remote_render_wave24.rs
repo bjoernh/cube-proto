@@ -361,3 +361,119 @@ fn frame_stream_bound_event_roundtrips_sds_6_2() {
     let e: Event = serde_json::from_value(j.clone()).expect("decode");
     assert_eq!(serde_json::to_value(&e).unwrap(), j);
 }
+
+// ── Handshake datagram (SDS v5 §6.2) ────────────────────────────────────────
+
+use cube_proto::handshake_datagram::{
+    HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC,
+};
+
+#[test]
+fn handshake_datagram_constants_sds_6_2() {
+    assert_eq!(HANDSHAKE_MAGIC, 0x4355_4248);
+    assert_eq!(HANDSHAKE_BYTES, 36);
+}
+
+#[test]
+fn handshake_datagram_encode_decode_roundtrips_sds_6_2() {
+    let token = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    let hd = HandshakeDatagram {
+        magic: HANDSHAKE_MAGIC,
+        flags: 0,
+        session_token: token,
+        format_tag: 1,
+        width: 384,
+        height: 64,
+        expected_payload_bytes: 49152,
+    };
+    let bytes = hd.clone().encode();
+    assert_eq!(bytes.len(), HANDSHAKE_BYTES);
+    let decoded = HandshakeDatagram::decode(&bytes).expect("decode");
+    assert_eq!(decoded, hd);
+}
+
+#[test]
+fn handshake_datagram_rejects_short_buffer_sds_6_2() {
+    let err = HandshakeDatagram::decode(&[0u8; 35]).unwrap_err();
+    assert_eq!(err, HandshakeError::ShortBuffer);
+}
+
+#[test]
+fn handshake_datagram_rejects_bad_magic_sds_6_2() {
+    let mut bytes = [0u8; 36];
+    bytes[0..4].copy_from_slice(&0xDEAD_BEEFu32.to_le_bytes());
+    let err = HandshakeDatagram::decode(&bytes).unwrap_err();
+    assert_eq!(err, HandshakeError::BadMagic);
+}
+
+#[test]
+fn handshake_datagram_rejects_nonzero_flags_sds_6_2() {
+    let token = [0u8; 16];
+    let mut _hd = HandshakeDatagram {
+        magic: HANDSHAKE_MAGIC,
+        flags: 1,
+        session_token: token,
+        format_tag: 1,
+        width: 384,
+        height: 64,
+        expected_payload_bytes: 49152,
+    };
+    // Encode with flags=1, then decode should reject
+    let mut bytes = [0u8; 36];
+    bytes[0..4].copy_from_slice(&HANDSHAKE_MAGIC.to_le_bytes());
+    bytes[4..8].copy_from_slice(&1u32.to_le_bytes());
+    bytes[8..24].copy_from_slice(&token);
+    bytes[24..28].copy_from_slice(&1u32.to_le_bytes());
+    bytes[28..30].copy_from_slice(&384u16.to_le_bytes());
+    bytes[30..32].copy_from_slice(&64u16.to_le_bytes());
+    bytes[32..36].copy_from_slice(&49152u32.to_le_bytes());
+    let err = HandshakeDatagram::decode(&bytes).unwrap_err();
+    assert_eq!(err, HandshakeError::NonZeroFlags);
+}
+
+#[test]
+fn handshake_datagram_rejects_unsupported_format_sds_6_2() {
+    let token = [0u8; 16];
+    let mut bytes = [0u8; 36];
+    bytes[0..4].copy_from_slice(&HANDSHAKE_MAGIC.to_le_bytes());
+    // flags = 0 (already)
+    bytes[8..24].copy_from_slice(&token);
+    bytes[24..28].copy_from_slice(&99u32.to_le_bytes()); // bad format
+    bytes[28..30].copy_from_slice(&384u16.to_le_bytes());
+    bytes[30..32].copy_from_slice(&64u16.to_le_bytes());
+    bytes[32..36].copy_from_slice(&49152u32.to_le_bytes());
+    let err = HandshakeDatagram::decode(&bytes).unwrap_err();
+    assert_eq!(err, HandshakeError::UnsupportedFormat);
+}
+
+#[test]
+fn handshake_datagram_rejects_bad_dimensions_sds_6_2() {
+    let token = [0u8; 16];
+    let mut bytes = [0u8; 36];
+    bytes[0..4].copy_from_slice(&HANDSHAKE_MAGIC.to_le_bytes());
+    bytes[8..24].copy_from_slice(&token);
+    bytes[24..28].copy_from_slice(&1u32.to_le_bytes());
+    bytes[28..30].copy_from_slice(&640u16.to_le_bytes()); // wrong width
+    bytes[30..32].copy_from_slice(&64u16.to_le_bytes());
+    bytes[32..36].copy_from_slice(&49152u32.to_le_bytes());
+    let err = HandshakeDatagram::decode(&bytes).unwrap_err();
+    assert_eq!(err, HandshakeError::BadDimensions);
+}
+
+#[test]
+fn handshake_datagram_session_token_roundtrips_sds_6_2() {
+    let token: [u8; 16] = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22,
+                            0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00];
+    let hd = HandshakeDatagram {
+        magic: HANDSHAKE_MAGIC,
+        flags: 0,
+        session_token: token,
+        format_tag: 1,
+        width: 384,
+        height: 64,
+        expected_payload_bytes: 49152,
+    };
+    let bytes = hd.encode();
+    let decoded = HandshakeDatagram::decode(&bytes).unwrap();
+    assert_eq!(decoded.session_token, token);
+}
