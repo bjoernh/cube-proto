@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cube_config::{
-    DisplayConfig, ImuConfig, InputConfig, NetworkConfig, PowerConfig, SystemConfig,
+    DisplayConfig, ImuConfig, InputConfig, RemoteRenderConfig, PowerConfig, SystemConfig,
     SystemConfigHandle, TransitionsConfig,
 };
 
@@ -25,13 +25,11 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
             refresh_hz,
             spi_clock_hz: 35_000_000,
         },
-        network: NetworkConfig {
-            tcp_control_enabled: true,
-            tcp_control_bind: "127.0.0.1".to_owned(),
-            tcp_control_port: 2018,
-            remote_render_enabled: true,
-            remote_render_bind: "127.0.0.1".to_owned(),
-            remote_render_port: 2017,
+        remote_render: RemoteRenderConfig {
+            enabled: false,
+            bind: "127.0.0.1".into(),
+            port: 2017,
+            mtu_hint: "jumbo_recommended".into(),
         },
         input: InputConfig {
             system_controller_name_pattern: "8BitDo*".to_owned(),
@@ -114,10 +112,10 @@ fn config_handle_swap_atomic_arch_4_11() {
                     // Hammer a second field too — torn reads would scramble
                     // values across structs.
                     assert!(
-                        snap.network.tcp_control_bind == "127.0.0.1"
-                            || snap.network.tcp_control_bind == "0.0.0.0",
-                        "torn read on tcp_control_bind: {:?}",
-                        snap.network.tcp_control_bind,
+                        snap.remote_render.bind == "127.0.0.1"
+                            || snap.remote_render.bind == "0.0.0.0",
+                        "torn read on remote_render.bind: {:?}",
+                        snap.remote_render.bind,
                     );
                 }
                 (seen_60, seen_120)
@@ -133,7 +131,7 @@ fn config_handle_swap_atomic_arch_4_11() {
                     make_cfg(120)
                 };
                 if i % 4 == 0 {
-                    cfg.network.tcp_control_bind = "0.0.0.0".to_owned();
+                    cfg.remote_render.bind = "0.0.0.0".to_owned();
                 }
                 handle.swap(cfg);
             }

@@ -31,13 +31,11 @@ fn sds_6_4_fixture_matches_normative_values_sds_6_4() {
     assert_eq!(cfg.display.refresh_hz, 60);
     assert_eq!(cfg.display.spi_clock_hz, 35_000_000);
 
-    // Network.
-    assert!(cfg.network.tcp_control_enabled);
-    assert_eq!(cfg.network.tcp_control_bind, "127.0.0.1");
-    assert_eq!(cfg.network.tcp_control_port, 2018);
-    assert!(cfg.network.remote_render_enabled);
-    assert_eq!(cfg.network.remote_render_bind, "127.0.0.1");
-    assert_eq!(cfg.network.remote_render_port, 2017);
+    // Remote render.
+    assert!(cfg.remote_render.enabled);
+    assert_eq!(cfg.remote_render.bind, "127.0.0.1");
+    assert_eq!(cfg.remote_render.port, 2017);
+    assert_eq!(cfg.remote_render.mtu_hint, "jumbo_recommended");
 
     // Input.
     assert_eq!(cfg.input.system_controller_name_pattern, "8BitDo*");
@@ -81,15 +79,10 @@ fn assert_eq_systemconfig(a: &SystemConfig, b: &SystemConfig) {
     assert_eq!(a.display.refresh_hz, b.display.refresh_hz);
     assert_eq!(a.display.spi_clock_hz, b.display.spi_clock_hz);
 
-    assert_eq!(a.network.tcp_control_enabled, b.network.tcp_control_enabled);
-    assert_eq!(a.network.tcp_control_bind, b.network.tcp_control_bind);
-    assert_eq!(a.network.tcp_control_port, b.network.tcp_control_port);
-    assert_eq!(
-        a.network.remote_render_enabled,
-        b.network.remote_render_enabled
-    );
-    assert_eq!(a.network.remote_render_bind, b.network.remote_render_bind);
-    assert_eq!(a.network.remote_render_port, b.network.remote_render_port);
+    assert_eq!(a.remote_render.enabled, b.remote_render.enabled);
+    assert_eq!(a.remote_render.bind, b.remote_render.bind);
+    assert_eq!(a.remote_render.port, b.remote_render.port);
+    assert_eq!(a.remote_render.mtu_hint, b.remote_render.mtu_hint);
 
     assert_eq!(
         a.input.system_controller_name_pattern,

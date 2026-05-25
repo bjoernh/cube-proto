@@ -14,16 +14,11 @@ spi_clock_hz = 35_000_000
 # bitstream_min_version = 1
 # bitstream_max_version = 1
 
-[network]
-# Control plane (JSON Lines)
-tcp_control_enabled = true
-tcp_control_bind = "127.0.0.1"    # default — loopback only; LAN-exposed forms log a loud warning
-tcp_control_port = 2018
-
-# Frame stream (binary)
-remote_render_enabled = true
-remote_render_bind = "127.0.0.1"  # default — loopback only (Mac dev path via SSH tunnel)
-remote_render_port = 2017
+[remote_render]
+enabled = true
+bind = "127.0.0.1"
+port = 2017
+mtu_hint = "jumbo_recommended"
 
 [input]
 # Pattern matched against evdev device NAME via udev monitor.

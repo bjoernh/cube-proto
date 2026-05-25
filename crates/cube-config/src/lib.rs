@@ -12,7 +12,7 @@ mod system;
 pub use manifest::{AppSection, Manifest, ManifestCategory, RequiresSection, load_manifest};
 pub use schema::{ParamDef, ParamType, Schema, SchemaBuilder, UiMeta, load_schema};
 pub use system::{
-    ConfigError, DisplayConfig, ImuConfig, InputConfig, NetworkConfig, PowerConfig,
+    ConfigError, DisplayConfig, ImuConfig, InputConfig, RemoteRenderConfig, PowerConfig,
     SystemConfig, SystemConfigHandle, TransitionsConfig, ValidationReport, ValidationWarning,
     load_system,
 };

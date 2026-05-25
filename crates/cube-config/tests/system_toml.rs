@@ -28,13 +28,11 @@ fn system_toml_parses_full_example_sds_6_4() {
     assert_eq!(cfg.display.refresh_hz, 60);
     assert_eq!(cfg.display.spi_clock_hz, 35_000_000);
 
-    // Network
-    assert!(cfg.network.tcp_control_enabled);
-    assert_eq!(cfg.network.tcp_control_bind, "127.0.0.1");
-    assert_eq!(cfg.network.tcp_control_port, 2018);
-    assert!(cfg.network.remote_render_enabled);
-    assert_eq!(cfg.network.remote_render_bind, "127.0.0.1");
-    assert_eq!(cfg.network.remote_render_port, 2017);
+    // Remote render (SDS v5 §6.4)
+    assert!(cfg.remote_render.enabled);
+    assert_eq!(cfg.remote_render.bind, "127.0.0.1");
+    assert_eq!(cfg.remote_render.port, 2017);
+    assert_eq!(cfg.remote_render.mtu_hint, "jumbo_recommended");
 
     // Input
     assert_eq!(cfg.input.system_controller_name_pattern, "8BitDo*");
@@ -72,13 +70,11 @@ mode = \"384x64@60\"
 refresh_hz = 60
 spi_clock_hz = 35000000
 
-[network]
-tcp_control_enabled = true
-tcp_control_bind = \"127.0.0.1\"
-tcp_control_port = 2018
-remote_render_enabled = true
-remote_render_bind = \"127.0.0.1\"
-remote_render_port = 2017
+[remote_render]
+enabled = true
+bind = \"127.0.0.1\"
+port = 2017
+mtu_hint = \"jumbo_recommended\"
 
 [input]
 system_controller_name_pattern = \"8BitDo*\"

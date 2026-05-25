@@ -59,7 +59,7 @@ pub struct ValidationReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemConfig {
     pub display: DisplayConfig,
-    pub network: NetworkConfig,
+    pub remote_render: RemoteRenderConfig,
     pub input: InputConfig,
     pub imu: ImuConfig,
     pub transitions: TransitionsConfig,
@@ -76,15 +76,13 @@ pub struct DisplayConfig {
     pub spi_clock_hz: u32,
 }
 
-/// `[network]` section.
+/// `[remote_render]` section (SDS v5 §6.4).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkConfig {
-    pub tcp_control_enabled: bool,
-    pub tcp_control_bind: String,
-    pub tcp_control_port: u16,
-    pub remote_render_enabled: bool,
-    pub remote_render_bind: String,
-    pub remote_render_port: u16,
+pub struct RemoteRenderConfig {
+    pub enabled: bool,
+    pub bind: String,
+    pub port: u16,
+    pub mtu_hint: String,
 }
 
 /// `[input]` section.
@@ -148,29 +146,17 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
 fn validate_system(cfg: &SystemConfig) -> ValidationReport {
     let mut report = ValidationReport::default();
 
-    // SDS §6.4: warn when tcp_control_bind or remote_render_bind is not a
-    // loopback address (i.e. exposed on the LAN).
+    // SDS §6.4: warn when bind is not a loopback address (i.e. exposed on the LAN).
     let loopback_prefixes = ["127.", "::1"];
     let is_loopback = |addr: &str| loopback_prefixes.iter().any(|p| addr.starts_with(p));
 
-    if cfg.network.tcp_control_enabled && !is_loopback(&cfg.network.tcp_control_bind) {
+    if cfg.remote_render.enabled && !is_loopback(&cfg.remote_render.bind) {
         report.warnings.push(ValidationWarning {
             code: "NETWORK_PUBLIC_BIND".to_owned(),
             message: format!(
-                "tcp_control_bind is set to {:?}, which is not a loopback address; \
-                 the control plane will be reachable from the network",
-                cfg.network.tcp_control_bind
-            ),
-        });
-    }
-
-    if cfg.network.remote_render_enabled && !is_loopback(&cfg.network.remote_render_bind) {
-        report.warnings.push(ValidationWarning {
-            code: "NETWORK_PUBLIC_BIND".to_owned(),
-            message: format!(
-                "remote_render_bind is set to {:?}, which is not a loopback address; \
+                "bind is set to {:?}, which is not a loopback address; \
                  the remote render stream will be reachable from the network",
-                cfg.network.remote_render_bind
+                cfg.remote_render.bind
             ),
         });
     }
