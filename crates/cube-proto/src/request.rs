@@ -151,6 +151,9 @@ pub enum Request {
     #[serde(rename = "brightness.set")]
     BrightnessSet { id: u64, value: u8 },
 
+    #[serde(rename = "brightness.get")]
+    BrightnessGet { id: u64 },
+
     #[serde(rename = "doctor.report")]
     DoctorReport { id: u64 },
 }

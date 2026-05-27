@@ -339,6 +339,12 @@ fn brightness_set_request_roundtrips_sds_5_10() {
 }
 
 #[test]
+fn brightness_get_request_roundtrips_sds_5_10() {
+    let j = json!({"id": 41, "cmd": "brightness.get"});
+    roundtrip_request(j);
+}
+
+#[test]
 fn doctor_report_request_roundtrips_sds_11_1() {
     let j = json!({"id": 41, "cmd": "doctor.report"});
     roundtrip_request(j);
