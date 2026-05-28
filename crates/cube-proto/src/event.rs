@@ -41,6 +41,30 @@ pub enum PresentDroppedReason {
     Blanked,
 }
 
+/// Who initiated a parameter change. Stamped onto every `param.changed`
+/// and `params.changed` event so subscribers can route differently.
+/// Defaults to [`ChangeSource::Unknown`] for forward-compat — older
+/// daemons that have no `source` field will deserialize as `Unknown`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChangeSource {
+    Cubectl,
+    Midi,
+    Preset,
+    App,
+    #[default]
+    Unknown,
+}
+
+impl ChangeSource {
+    /// `true` when the source is the default placeholder. Used as
+    /// `skip_serializing_if` on `ParamChanged`/`ParamsChanged` so the
+    /// wire stays clean when the daemon has no specific attribution.
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown)
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event enum
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,6 +98,10 @@ pub enum Event {
         seq: u64,
         key: String,
         value: ParamValue,
+        #[serde(default, skip_serializing_if = "ChangeSource::is_unknown")]
+        source: ChangeSource,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        preset: Option<String>,
     },
 
     #[serde(rename = "params.changed")]
@@ -81,6 +109,10 @@ pub enum Event {
         app: String,
         seq: u64,
         values: BTreeMap<String, ParamValue>,
+        #[serde(default, skip_serializing_if = "ChangeSource::is_unknown")]
+        source: ChangeSource,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        preset: Option<String>,
     },
 
     #[serde(rename = "events.dropped")]

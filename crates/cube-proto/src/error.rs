@@ -26,6 +26,8 @@ pub enum CubeErrno {
     ETIMEOUT,
     EBUSY,
     ENOTRUNNING,
+    /// Schema file could not be parsed (SDS §5.4).
+    ESCHEMA,
 }
 
 /// Error body carried in `{"ok": false, "error": { … }}` responses (SDS §5.3).

@@ -36,6 +36,9 @@ fn status_report_roundtrips_every_field_sds_11_1() {
             present_to_displayed_latency_mean_ms: Some(12.4),
             present_to_displayed_latency_p95_ms: Some(18.7),
             remote_sender_drops: 0,
+            latest_video_latency_us: None,
+            total_remote_sender_dropped: 0,
+            last_seq: 0,
         },
     );
 

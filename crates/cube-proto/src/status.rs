@@ -75,4 +75,15 @@ pub struct PerAppStatus {
     pub present_to_displayed_latency_mean_ms: Option<f32>,
     pub present_to_displayed_latency_p95_ms: Option<f32>,
     pub remote_sender_drops: u64,
+    /// Last `video_latency_us` value reported via `client.stats`
+    /// (SDS §6.1). `None` until the first stats event arrives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_video_latency_us: Option<u64>,
+    /// Cumulative remote-sender dropped frames reported via
+    /// `client.stats`. Updated to the latest value each event.
+    #[serde(default)]
+    pub total_remote_sender_dropped: u64,
+    /// Last `last_seq` value reported via `client.stats`.
+    #[serde(default)]
+    pub last_seq: u64,
 }
