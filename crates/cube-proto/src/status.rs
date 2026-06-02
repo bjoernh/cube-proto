@@ -28,6 +28,10 @@ pub struct StatusReport {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CubedStatus {
     pub version: String,
+    /// ISO 8601 (RFC 3339, UTC) timestamp of when this `cubed` binary was
+    /// compiled. Lets a debugging session confirm via `cubectl status` that
+    /// the freshly-built binary is actually the one running.
+    pub build_date: String,
     pub uptime_seconds: u64,
     pub protocol_version: String,
     pub active_app: Option<String>,

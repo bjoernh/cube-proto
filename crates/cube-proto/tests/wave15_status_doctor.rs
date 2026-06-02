@@ -45,6 +45,7 @@ fn status_report_roundtrips_every_field_sds_11_1() {
     let report = StatusReport {
         cubed: CubedStatus {
             version: "0.1.0".to_owned(),
+            build_date: "2026-06-01T00:00:00+00:00".to_owned(),
             uptime_seconds: 600,
             protocol_version: "1.0".to_owned(),
             active_app: Some("picture".to_owned()),
