@@ -31,7 +31,16 @@ pub enum PowerState {
     Blanked,
 }
 
-/// Reason a presented frame was dropped (SDS v5 §6.2).
+/// Reason a presented frame was dropped (SDS v5 §6.2; SDS v6 §6.2).
+///
+/// v6 §6.2 pins the remote `present.dropped` vocabulary to exactly
+/// `too_late | fragmented | focus_lost`. `Blanked` is retained here because
+/// the local `buffer.release` event (SDS §5.1, §5.12) still carries
+/// `reason:"blanked"` and shares this enum's wire representation; v6 does
+/// not remove `blanked` from `buffer.release`, only from the `present.dropped`
+/// remote vocabulary. No `present.dropped {reason:"blanked"}` literal is
+/// constructed by `cubed` (blanking does not affect remote-drop accounting),
+/// so keeping the variant here is additive and harmless.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PresentDroppedReason {
@@ -39,6 +48,19 @@ pub enum PresentDroppedReason {
     Fragmented,
     FocusLost,
     Blanked,
+}
+
+/// Reason `focus.lost` was emitted (SDS v6 §5.2, §6.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FocusLostReason {
+    /// Another app was launched or focused, displacing this one.
+    AppSwitch,
+    /// The Home key returned focus to the launcher.
+    Home,
+    /// Emitted on the stop path before the stop sequence proceeds
+    /// (pause-before-stop, SDS v6 §5.2).
+    Stopping,
 }
 
 /// Who initiated a parameter change. Stamped onto every `param.changed`
@@ -77,8 +99,31 @@ pub enum Event {
     #[serde(rename = "app.started")]
     AppStarted { app: String },
 
+    /// `reason` is a free-form wire vocabulary string (SDS v6 §6.1, §6.2).
+    /// Known values include `"normal"`, `"failed"`, `"register_timeout"`,
+    /// `"replaced"`, `"control_lost"`, `"frame_handshake_timeout"`,
+    /// `"frame_stream_lost"`, and `"frame_stream_idle"` (SDS v6 §6.2, item
+    /// 2.7). Older daemons that omit `reason` deserialize as `None`; the
+    /// field is omitted on the wire when absent so v5 clients see the
+    /// unchanged `{"event":"app.stopped","app":"snake"}` shape.
     #[serde(rename = "app.stopped")]
-    AppStopped { app: String },
+    AppStopped {
+        app: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+
+    /// Reliable-tier (SDS v6 §5.3 classification): a non-reading app trips
+    /// the existing fail-loud disconnect policy. Emitted on the app's own
+    /// connection on focus loss (SDS v6 §5.2, §6.1).
+    #[serde(rename = "focus.lost")]
+    FocusLost { reason: FocusLostReason },
+
+    /// Reliable-tier (SDS v6 §5.3 classification), see [`Event::FocusLost`].
+    /// Always followed by `input.snapshot` before any `input.event`
+    /// (SDS v6 §5.2, §6.1).
+    #[serde(rename = "focus.gained")]
+    FocusGained,
 
     // ── Frame / buffer ───────────────────────────────────────────────────────
     #[serde(rename = "present.displayed")]

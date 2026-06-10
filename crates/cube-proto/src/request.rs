@@ -16,6 +16,30 @@ use serde::{Deserialize, Serialize};
 
 use crate::value::{Damage, Format, ParamValue};
 
+/// `result` body of the `hello` OK response (SDS §5.3; SDS v6 delta §7).
+///
+/// Today `cubed` replies to a compatible `hello` with an empty
+/// `{"id":..,"ok":true}` (no `result`) — see `cubed`'s
+/// `control_plane::handshake::do_handshake_sync`, which calls
+/// `send_ok_sync(fd, id)`. This type is the v6 wire shape for a richer OK
+/// response that lets a client (e.g. `cubekit`) read back `cubed`'s
+/// advertised protocol version and detect the v6 surface, per delta §7 /
+/// cubekit spec §3.5. Wiring `cubed`'s handshake to actually send this body
+/// is a daemon-wave change (see the `// TODO(sds-v6 2.1)` left in
+/// `handshake.rs`); this crate defines the type + round-trips it now so both
+/// sides share one source of truth ([`crate::PROTOCOL_VERSION`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HelloResult {
+    /// `cubed`'s advertised protocol version, `"<major>.<minor>"`
+    /// (see [`crate::PROTOCOL_VERSION`]).
+    pub protocol_version: String,
+    /// Optional surface/feature marker for forward-compat (e.g.
+    /// `"v6"`). Absent on older daemons; clients that only check
+    /// `protocol_version` minor can ignore this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+}
+
 /// Top-level request envelope. Internally tagged on `"cmd"`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "cmd", deny_unknown_fields)]
@@ -156,4 +180,15 @@ pub enum Request {
 
     #[serde(rename = "doctor.report")]
     DoctorReport { id: u64 },
+
+    // ── Power (admin) ─────────────────────────────────────────────────────────
+    /// Admin-only (SDS v6 §5.12): immediately blank the display, idempotent.
+    /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
+    #[serde(rename = "power.blank")]
+    PowerBlank { id: u64 },
+
+    /// Admin-only (SDS v6 §5.12): immediately wake the display, idempotent.
+    /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
+    #[serde(rename = "power.wake")]
+    PowerWake { id: u64 },
 }

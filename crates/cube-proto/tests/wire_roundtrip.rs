@@ -18,7 +18,7 @@
 
 use serde_json::{Value, json};
 
-use cube_proto::{Damage, Event, Format, ParamValue, Request, Response, Vec2, Vec3};
+use cube_proto::{Damage, Event, Format, HelloResult, ParamValue, Request, Response, Vec2, Vec3};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // helpers
@@ -70,6 +70,58 @@ fn hello_request_roundtrips_sds_5_3() {
         "protocol_version": "1.0.0"
     });
     roundtrip_request(j);
+}
+
+#[test]
+fn hello_request_v6_minor_roundtrips_sds_5_3() {
+    // SDS v6 delta §7: v6 is a minor bump within major 1; a `hello` quoting
+    // the full v6 wire version (cube_proto::PROTOCOL_VERSION) round-trips
+    // identically to any other protocol_version string.
+    let j = json!({
+        "id": 1,
+        "cmd": "hello",
+        "protocol_version": cube_proto::PROTOCOL_VERSION
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn hello_result_roundtrips_sds_5_3_v6_delta_7() {
+    // SDS v6 delta §7 / cubekit spec §3.5: the hello OK response carries
+    // cubed's advertised protocol version + surface marker.
+    let j = json!({
+        "protocol_version": "1.1",
+        "surface": "v6"
+    });
+    let r: HelloResult = serde_json::from_value(j.clone()).expect("HelloResult decode");
+    let back = serde_json::to_value(&r).expect("HelloResult encode");
+    assert_eq!(back, j);
+    assert_eq!(r.protocol_version, "1.1");
+    assert_eq!(r.surface.as_deref(), Some("v6"));
+}
+
+#[test]
+fn hello_result_without_surface_omits_field_sds_5_3_v6_delta_7() {
+    // `surface` is optional / `skip_serializing_if` so older clients that
+    // only read `protocol_version` see a minimal body.
+    let r = HelloResult {
+        protocol_version: "1.1".to_string(),
+        surface: None,
+    };
+    let v = serde_json::to_value(&r).unwrap();
+    assert_eq!(v, json!({"protocol_version": "1.1"}));
+    let r2: HelloResult = serde_json::from_value(v).unwrap();
+    assert_eq!(r, r2);
+}
+
+#[test]
+fn response_ok_with_hello_result_roundtrips_sds_5_3_v6_delta_7() {
+    let j = json!({
+        "id": 1,
+        "ok": true,
+        "result": {"protocol_version": "1.1", "surface": "v6"}
+    });
+    roundtrip_response(j);
 }
 
 #[test]
@@ -351,6 +403,22 @@ fn doctor_report_request_roundtrips_sds_11_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Power (admin): power.blank, power.wake  (SDS v6 §5.12)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn power_blank_request_roundtrips_sds_5_12() {
+    let j = json!({"id": 50, "cmd": "power.blank"});
+    roundtrip_request(j);
+}
+
+#[test]
+fn power_wake_request_roundtrips_sds_5_12() {
+    let j = json!({"id": 51, "cmd": "power.wake"});
+    roundtrip_request(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Response envelope  (SDS §5.3)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -409,7 +477,52 @@ fn app_started_event_roundtrips_sds_5_3() {
 
 #[test]
 fn app_stopped_event_roundtrips_sds_5_3() {
+    // v5 wire shape: no `reason` field. `reason` is `#[serde(default,
+    // skip_serializing_if = "Option::is_none")]` so this v5-shaped literal
+    // still round-trips byte-for-byte (backward compat, SDS v6 delta §7).
     let j = json!({"event": "app.stopped", "app": "snake"});
+    roundtrip_event(j);
+}
+
+#[test]
+fn app_stopped_event_with_reason_roundtrips_sds_6_2() {
+    let j = json!({"event": "app.stopped", "app": "snake", "reason": "control_lost"});
+    roundtrip_event(j);
+}
+
+#[test]
+fn app_stopped_event_with_frame_stream_idle_reason_roundtrips_sds_6_2() {
+    // SDS v6 §6.2 / item 2.7: the `frame_stream_idle` teardown reason added
+    // to the `app.stopped` wire vocabulary.
+    let j = json!({"event": "app.stopped", "app": "snake", "reason": "frame_stream_idle"});
+    roundtrip_event(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Events: focus.lost, focus.gained  (SDS v6 §5.2, §6.1 — reliable-tier)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn focus_lost_event_app_switch_roundtrips_sds_6_1() {
+    let j = json!({"event": "focus.lost", "reason": "app_switch"});
+    roundtrip_event(j);
+}
+
+#[test]
+fn focus_lost_event_home_roundtrips_sds_6_1() {
+    let j = json!({"event": "focus.lost", "reason": "home"});
+    roundtrip_event(j);
+}
+
+#[test]
+fn focus_lost_event_stopping_roundtrips_sds_6_1() {
+    let j = json!({"event": "focus.lost", "reason": "stopping"});
+    roundtrip_event(j);
+}
+
+#[test]
+fn focus_gained_event_roundtrips_sds_6_1() {
+    let j = json!({"event": "focus.gained"});
     roundtrip_event(j);
 }
 
