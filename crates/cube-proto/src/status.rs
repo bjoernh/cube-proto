@@ -51,6 +51,15 @@ pub struct DisplayStatus {
     pub frames_displayed: u64,
     pub frames_dropped: FramesDropped,
     pub spi_errors: u64,
+    /// What caused the display to be blanked (SDS v6 §5.12, delta §6/§8):
+    /// `none` (active), `idle` (idle timer), or `command` (`power.blank`).
+    /// Defaults to `none` for backward compatibility with v5 status payloads.
+    #[serde(default = "blank_source_default")]
+    pub blank_source: String,
+}
+
+fn blank_source_default() -> String {
+    "none".to_owned()
 }
 
 /// Per-reason dropped-frame counters (SDS §5.1 / §11.1).
