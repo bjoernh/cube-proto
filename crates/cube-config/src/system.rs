@@ -64,6 +64,10 @@ pub struct SystemConfig {
     pub imu: ImuConfig,
     pub transitions: TransitionsConfig,
     pub power: PowerConfig,
+    /// `[apps]` section (SDS v6 §1/§7.2). Optional; a missing table parses
+    /// as the default (`max_resident = 1`).
+    #[serde(default)]
+    pub apps: AppsConfig,
 }
 
 /// `[display]` section.
@@ -115,6 +119,22 @@ pub struct PowerConfig {
     pub idle_blank_after_sec: u32,
 }
 
+/// `[apps]` section (SDS v6 §1/§7.2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppsConfig {
+    /// The maximum number of concurrently resident (focused + paused)
+    /// non-launcher app sessions. Default `1`, which reproduces v5's
+    /// implicit single-foreground/eviction behaviour. Must be `>= 1`.
+    pub max_resident: u32,
+}
+
+impl Default for AppsConfig {
+    fn default() -> Self {
+        Self { max_resident: 1 }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Loader
 // ─────────────────────────────────────────────────────────────────────────────
@@ -137,6 +157,15 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
         path: path.to_owned(),
         message: e.to_string(),
     })?;
+
+    // SDS v6 §1: `[apps] max_resident` must be at least 1 — every cube runs
+    // at least one (foreground) app.
+    if cfg.apps.max_resident == 0 {
+        return Err(ConfigError::Parse {
+            path: path.to_owned(),
+            message: "[apps] max_resident must be at least 1 (got 0)".to_owned(),
+        });
+    }
 
     let report = validate_system(&cfg);
     Ok((cfg, report))

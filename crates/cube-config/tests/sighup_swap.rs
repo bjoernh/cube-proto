@@ -12,8 +12,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cube_config::{
-    DisplayConfig, ImuConfig, InputConfig, RemoteRenderConfig, PowerConfig, SystemConfig,
-    SystemConfigHandle, TransitionsConfig,
+    AppsConfig, DisplayConfig, ImuConfig, InputConfig, PowerConfig, RemoteRenderConfig,
+    SystemConfig, SystemConfigHandle, TransitionsConfig,
 };
 
 fn make_cfg(refresh_hz: u32) -> SystemConfig {
@@ -48,6 +48,7 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
         power: PowerConfig {
             idle_blank_after_sec: 0,
         },
+        apps: AppsConfig::default(),
     }
 }
 

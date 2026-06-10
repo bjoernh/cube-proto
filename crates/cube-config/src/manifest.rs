@@ -35,6 +35,7 @@ pub enum ManifestCategory {
 pub struct Manifest {
     pub app: AppSection,
     pub requires: Option<RequiresSection>,
+    pub power: Option<PowerSection>,
 }
 
 /// `[app]` section of a `manifest.toml`.
@@ -48,11 +49,32 @@ pub struct AppSection {
 }
 
 /// `[requires]` section of a `manifest.toml`.
+///
+/// SDS v6 §7.2: `libcube` and `cubekit` are alternative SDK-compatibility
+/// fields — an app declares **exactly one**, matching the SDK it links. This
+/// is enforced by [`load_manifest`] only when a `[requires]` table is
+/// present at all; a manifest with no `[requires]` table remains valid
+/// (v5 compat).
 #[derive(Debug, Clone)]
 pub struct RequiresSection {
     pub libcube: Option<VersionReq>,
+    pub cubekit: Option<VersionReq>,
     pub inputs: Vec<String>,
     pub sensors: Vec<String>,
+    /// `true` if the app declares a need for outbound network access
+    /// (SDS v6 §5.2, §7.2). Defaults to `false`.
+    pub network: bool,
+}
+
+/// `[power]` section of a `manifest.toml` (SDS v6 §7.2).
+///
+/// Optional; a missing `[power]` table is equivalent to
+/// `idle_blank = false`.
+#[derive(Debug, Clone)]
+pub struct PowerSection {
+    /// When `true`, the system idle-blank timer also runs while this app is
+    /// focused (SDS v6 §5.12).
+    pub idle_blank: bool,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,6 +85,7 @@ pub struct RequiresSection {
 struct RawManifest {
     app: RawApp,
     requires: Option<RawRequires>,
+    power: Option<RawPower>,
 }
 
 #[derive(Deserialize)]
@@ -78,10 +101,22 @@ struct RawApp {
 struct RawRequires {
     #[serde(default, deserialize_with = "de_opt_version_req")]
     libcube: Option<VersionReq>,
+    #[serde(default, deserialize_with = "de_opt_version_req")]
+    cubekit: Option<VersionReq>,
     #[serde(default)]
     inputs: Vec<String>,
     #[serde(default)]
     sensors: Vec<String>,
+    /// SDS v6 §7.2: optional, default `false`.
+    #[serde(default)]
+    network: bool,
+}
+
+#[derive(Deserialize)]
+struct RawPower {
+    /// SDS v6 §7.2: optional, default `false`.
+    #[serde(default)]
+    idle_blank: bool,
 }
 
 fn de_opt_version_req<'de, D>(d: D) -> Result<Option<VersionReq>, D::Error>
@@ -164,12 +199,39 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
         icon: raw.app.icon,
     };
 
-    let requires = raw.requires.map(|r| RequiresSection {
-        libcube: r.libcube,
-        inputs: r.inputs,
-        sensors: r.sensors,
+    let requires = raw
+        .requires
+        .map(|r| {
+            // SDS v6 §7.2: `libcube` and `cubekit` are alternative
+            // SDK-compatibility fields — exactly one must be declared when
+            // `[requires]` is present at all.
+            match (&r.libcube, &r.cubekit) {
+                (Some(_), Some(_)) => Err(parse_err(
+                    "[requires]: declare exactly one of `libcube` or `cubekit`, not both"
+                        .to_owned(),
+                )),
+                (None, None) => Err(parse_err(
+                    "[requires]: must declare exactly one of `libcube` or `cubekit`".to_owned(),
+                )),
+                _ => Ok(RequiresSection {
+                    libcube: r.libcube,
+                    cubekit: r.cubekit,
+                    inputs: r.inputs,
+                    sensors: r.sensors,
+                    network: r.network,
+                }),
+            }
+        })
+        .transpose()?;
+
+    let power = raw.power.map(|p| PowerSection {
+        idle_blank: p.idle_blank,
     });
 
-    Ok(Manifest { app, requires })
+    Ok(Manifest {
+        app,
+        requires,
+        power,
+    })
 }
 

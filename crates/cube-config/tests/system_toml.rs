@@ -51,6 +51,10 @@ fn system_toml_parses_full_example_sds_6_4() {
     // Power
     assert_eq!(cfg.power.idle_blank_after_sec, 0);
 
+    // Apps (SDS v6 §1/§7.2): the fixture has no [apps] table, so
+    // max_resident must default to 1 (v5-equivalent behaviour).
+    assert_eq!(cfg.apps.max_resident, 1);
+
     // Default-bind fixture must produce zero warnings.
     assert!(
         report.warnings.is_empty(),
@@ -135,5 +139,60 @@ fn system_toml_missing_file_errors_sds_6_4() {
     match err {
         ConfigError::Missing(missing) => assert_eq!(missing, p),
         other => panic!("expected ConfigError::Missing, got {other:?}"),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SDS v6 §1/§7.2: `[apps] max_resident`
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn write(toml: &str) -> PathBuf {
+    let dir = tempfile::tempdir().unwrap();
+    let dir = Box::leak(Box::new(dir));
+    let p = dir.path().join("system.toml");
+    std::fs::write(&p, toml).unwrap();
+    p
+}
+
+/// SDS v6 §1: a missing `[apps]` table defaults `max_resident` to `1`
+/// (reproduces v5's implicit single-foreground behaviour).
+#[test]
+fn system_toml_apps_table_absent_defaults_max_resident_one_sds_6_4() {
+    let path = fixture("system_full.toml");
+    let (cfg, _report) = load_system(&path).expect("fixture must parse");
+    assert_eq!(cfg.apps.max_resident, 1);
+}
+
+/// SDS v6 §1: an explicit `[apps] max_resident` value is honoured.
+#[test]
+fn system_toml_apps_max_resident_explicit_value_sds_6_4() {
+    let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
+    let body = format!("{base}\n[apps]\nmax_resident = 3\n");
+    let p = write(&body);
+
+    let (cfg, report) = load_system(&p).expect("system.toml with [apps] must parse");
+    assert_eq!(cfg.apps.max_resident, 3);
+    assert!(report.errors.is_empty());
+}
+
+/// SDS v6 §1: `[apps] max_resident = 0` is invalid (every cube must run at
+/// least one app).
+#[test]
+fn system_toml_apps_max_resident_zero_is_error_sds_6_4() {
+    let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
+    let body = format!("{base}\n[apps]\nmax_resident = 0\n");
+    let p = write(&body);
+
+    let err = load_system(&p).expect_err("max_resident = 0 must be rejected");
+    match err {
+        ConfigError::Parse { message, .. } => {
+            assert!(
+                message.to_lowercase().contains("max_resident")
+                    || message.to_lowercase().contains("zero")
+                    || message.to_lowercase().contains("at least"),
+                "error message should mention max_resident / zero, got: {message}"
+            );
+        }
+        other => panic!("expected ConfigError::Parse, got {other:?}"),
     }
 }

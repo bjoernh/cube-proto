@@ -9,10 +9,12 @@ mod manifest;
 mod schema;
 mod system;
 
-pub use manifest::{AppSection, Manifest, ManifestCategory, RequiresSection, load_manifest};
+pub use manifest::{
+    AppSection, Manifest, ManifestCategory, PowerSection, RequiresSection, load_manifest,
+};
 pub use schema::{ParamDef, ParamType, Schema, SchemaBuilder, UiMeta, load_schema};
 pub use system::{
-    ConfigError, DisplayConfig, ImuConfig, InputConfig, RemoteRenderConfig, PowerConfig,
-    SystemConfig, SystemConfigHandle, TransitionsConfig, ValidationReport, ValidationWarning,
-    load_system,
+    AppsConfig, ConfigError, DisplayConfig, ImuConfig, InputConfig, PowerConfig,
+    RemoteRenderConfig, SystemConfig, SystemConfigHandle, TransitionsConfig, ValidationReport,
+    ValidationWarning, load_system,
 };
