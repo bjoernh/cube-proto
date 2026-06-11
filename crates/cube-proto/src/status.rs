@@ -37,6 +37,19 @@ pub struct CubedStatus {
     pub active_app: Option<String>,
     pub focused_app: Option<String>,
     pub launcher_state: String,
+    /// Current count of resident non-launcher app sessions (focused + paused,
+    /// SDS v6 §1.2 / delta §6). Defaults to `0` for backward compatibility
+    /// with v5 status payloads.
+    #[serde(default)]
+    pub resident_apps: u32,
+    /// `[apps] max_resident` from `system.toml` (SDS v6 §1.2 / delta §6).
+    /// Defaults to `1` (v5-equivalent) for backward compatibility.
+    #[serde(default = "max_resident_default")]
+    pub max_resident: u32,
+}
+
+fn max_resident_default() -> u32 {
+    1
 }
 
 /// `display:` section (SDS §11.1).
@@ -78,6 +91,15 @@ pub struct PerAppStatus {
     pub pid: Option<u32>,
     pub systemd_unit: String,
     pub connection_state: String,
+    /// Resident-session state (SDS v6 §1.1 / delta §6):
+    /// `starting | focused | paused | stopping`. Empty string for apps with
+    /// no tracked session (v5 compatibility / launcher).
+    #[serde(default)]
+    pub state: String,
+    /// Monotonic focus stamp; eviction order is by this value (SDS v6 §1.2 /
+    /// delta §6). `0` if the session has never been focused or is untracked.
+    #[serde(default)]
+    pub last_focused: u64,
     pub last_present_seq: u64,
     pub inflight_buffers: u32,
     pub fps_submitted: f32,
