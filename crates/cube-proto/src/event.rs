@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::status::PauseCauses;
 use crate::value::ParamValue;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +30,20 @@ pub enum ReleaseReason {
 pub enum PowerState {
     Active,
     Blanked,
+}
+
+/// Why a bounded subscription was terminated by the daemon (SDS v6 §5.13
+/// "Bounded subscriptions"). Delivered as the `reason` of the final
+/// [`Event::SubscriptionEnded`] event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubscriptionEndReason {
+    /// The `max_events` budget was exhausted.
+    MaxEvents,
+    /// The `timeout_ms` deadline elapsed.
+    Timeout,
+    /// The per-connection outbox overflowed (back-pressure shed, §5.13).
+    Overflow,
 }
 
 /// Reason a presented frame was dropped (SDS v5 §6.2; SDS v6 §6.2).
@@ -96,21 +111,62 @@ impl ChangeSource {
 #[serde(tag = "event")]
 pub enum Event {
     // ── Lifecycle ────────────────────────────────────────────────────────────
+    /// `event_seq` is the per-connection reliable-event sequence stamp added in
+    /// SDS v6 §5.13. Omitted on the wire (and `None`) for v5 daemons, so the
+    /// `{"event":"app.started","app":"snake"}` shape is byte-preserved.
     #[serde(rename = "app.started")]
-    AppStarted { app: String },
+    AppStarted {
+        app: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
+    },
 
     /// `reason` is a free-form wire vocabulary string (SDS v6 §6.1, §6.2).
     /// Known values include `"normal"`, `"failed"`, `"register_timeout"`,
     /// `"replaced"`, `"control_lost"`, `"frame_handshake_timeout"`,
-    /// `"frame_stream_lost"`, and `"frame_stream_idle"` (SDS v6 §6.2, item
-    /// 2.7). Older daemons that omit `reason` deserialize as `None`; the
-    /// field is omitted on the wire when absent so v5 clients see the
-    /// unchanged `{"event":"app.stopped","app":"snake"}` shape.
+    /// `"frame_stream_lost"`, `"frame_stream_idle"`, and `"evicted"`
+    /// (LRU eviction, SDS v6 §5.13). Older daemons that omit `reason`
+    /// deserialize as `None`; the field is omitted on the wire when absent so
+    /// v5 clients see the unchanged `{"event":"app.stopped","app":"snake"}`
+    /// shape. `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted
+    /// when `None`).
     #[serde(rename = "app.stopped")]
     AppStopped {
         app: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
+    },
+
+    /// Resident-session state transition (SDS v6 §5.13 "Event payloads —
+    /// lifecycle"). `from`/`to` are the v6 lifecycle state strings
+    /// (`starting | focused | paused | stopping`). `cause` is present only on
+    /// focus/blank pause edges and omitted otherwise. `event_seq` is the
+    /// reliable-event stamp.
+    #[serde(rename = "app.state")]
+    AppState {
+        app: String,
+        from: String,
+        to: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cause: Option<PauseCauses>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
+    },
+
+    /// Focus moved between resident apps (SDS v6 §5.13 "Event payloads —
+    /// lifecycle"). `focused_app` is absent when focus drops to nothing;
+    /// `previous` is absent for the first focus after boot. `event_seq` is the
+    /// reliable-event stamp.
+    #[serde(rename = "focus.changed")]
+    FocusChanged {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        focused_app: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
     },
 
     /// Reliable-tier (SDS v6 §5.3 classification): a non-reading app trips
@@ -189,11 +245,44 @@ pub enum Event {
     InputDropped { since_seq: u64 },
 
     // ── Power / system ───────────────────────────────────────────────────────
+    /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted when
+    /// `None`, preserving the v5 `{"event":"power.state","state":..}` shape).
     #[serde(rename = "power.state")]
-    PowerState { state: PowerState },
+    PowerState {
+        state: PowerState,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
+    },
 
     #[serde(rename = "config.reloaded")]
     ConfigReloaded,
+
+    // ── Telemetry / brightness / subscription control (SDS v6 §5.13) ──────────
+    /// Per-app frame telemetry sample (SDS v6 §5.13 "Event payloads —
+    /// telemetry"). Telemetry is a coalescible class: it carries no
+    /// `event_seq`. `drops_delta` is the drop count since the previous sample;
+    /// `frame_seq` is the monotonic present sequence the sample was taken at.
+    #[serde(rename = "app.stats")]
+    AppStats {
+        app: String,
+        fps: f32,
+        drops: u64,
+        drops_delta: u64,
+        frame_seq: u64,
+    },
+
+    /// Global brightness changed (SDS v6 §5.13 "Event payloads — brightness").
+    /// Coalescible class: carries no `event_seq`, ever.
+    #[serde(rename = "brightness.changed")]
+    BrightnessChanged { value: u8 },
+
+    /// A bounded subscription was terminated by the daemon (SDS v6 §5.13
+    /// "Bounded subscriptions"): the final event delivered on that `sub_id`.
+    #[serde(rename = "subscription.ended")]
+    SubscriptionEnded {
+        sub_id: String,
+        reason: SubscriptionEndReason,
+    },
 
     // ── Remote rendering ─────────────────────────────────────────────────────
     #[serde(rename = "frame_stream.bound")]

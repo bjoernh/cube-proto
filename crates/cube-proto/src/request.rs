@@ -143,11 +143,53 @@ pub enum Request {
         key: Option<String>,
     },
 
+    /// Subscribe to an event stream (SDS v6 §5.13 "The commands").
+    ///
+    /// The legacy v5 param-watch shape `{id, app}` round-trips byte-identically:
+    /// `app` defaults to `"*"` on parse and is always re-serialized, while every
+    /// §5.13 field is omitted from the wire when unset. New fields:
+    /// `events` (class filter), `interval_ms` (telemetry coalescing cadence),
+    /// `snapshot` (request a baseline [`crate::SubscribeResult`] snapshot),
+    /// `max_events` / `timeout_ms` (bounded subscriptions).
     #[serde(rename = "subscribe")]
-    Subscribe { id: u64, app: String },
+    Subscribe {
+        id: u64,
+        #[serde(default = "subscribe_app_default")]
+        app: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        events: Option<Vec<String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interval_ms: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        snapshot: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_events: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
 
+    /// Cancel a subscription (SDS v6 §5.13 "The commands").
+    ///
+    /// Targets one subscription by `sub_id`, all of a connection's
+    /// subscriptions with `all: true`, or — for the legacy v5 param-watch shape
+    /// `{id, app}` — a single app's param stream. `all` is omitted on the wire
+    /// when `false`; `app`/`sub_id` are omitted when absent.
     #[serde(rename = "unsubscribe")]
-    Unsubscribe { id: u64, app: String },
+    Unsubscribe {
+        id: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        app: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sub_id: Option<String>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        all: bool,
+    },
+
+    /// List this connection's active subscriptions (SDS v6 §5.13
+    /// "The commands"): an introspection verb for debugging the subscription
+    /// surface.
+    #[serde(rename = "subscriptions")]
+    Subscriptions { id: u64 },
 
     // ── Presets ───────────────────────────────────────────────────────────────
     #[serde(rename = "preset.list")]
@@ -191,4 +233,17 @@ pub enum Request {
     /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
     #[serde(rename = "power.wake")]
     PowerWake { id: u64 },
+}
+
+/// Default `app` selector for [`Request::Subscribe`] (SDS v6 §5.13): a client
+/// that omits `app` subscribes to global event classes across all apps.
+fn subscribe_app_default() -> String {
+    "*".to_owned()
+}
+
+/// `skip_serializing_if` helper: keep `false` booleans off the wire so the
+/// legacy `{id, app}` unsubscribe shape round-trips byte-identically.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(b: &bool) -> bool {
+    !*b
 }

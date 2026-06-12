@@ -16,15 +16,25 @@ pub mod request;
 pub mod response;
 pub mod session_token;
 pub mod status;
+pub mod subscription;
 pub mod value;
 
 pub use doctor::{CheckLevel, CheckResult, DoctorReportPayload};
 pub use error::{CubeErrno, CubeError};
-pub use event::{ChangeSource, Event, FocusLostReason, PowerState, PresentDroppedReason, ReleaseReason};
+pub use event::{
+    ChangeSource, Event, FocusLostReason, PowerState, PresentDroppedReason, ReleaseReason,
+    SubscriptionEndReason,
+};
 pub use handshake_datagram::{HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC};
 pub use request::{HelloResult, Request};
 pub use response::{Response, ResponseBody};
-pub use status::{CubedStatus, DisplayStatus, FramesDropped, PerAppStatus, StatusReport};
+pub use status::{
+    CubedStatus, DisplayStatus, FramesDropped, PauseCauses, PerAppStatus, StatusReport,
+};
+pub use subscription::{
+    BrightnessSnapshot, LifecycleSnapshot, PowerSnapshot, SessionSnapshot, Snapshot,
+    SubscribeResult, TelemetrySnapshot,
+};
 pub use value::{Color, Damage, Format, ParamValue, Vec2, Vec3};
 
 /// Maximum permitted wire-message size (SDS §5.3 / §6.1).
@@ -40,18 +50,21 @@ pub const PROTOCOL_MAJOR: u32 = 1;
 
 /// Control-protocol minor version for the v6 surface (SDS v6; delta §4–§7).
 ///
-/// Bumped from v5's `0` to `1` to mark the addition of `focus.lost`,
-/// `focus.gained`, `power.blank`, `power.wake`, and the residency model.
-/// A client (e.g. `cubekit`) detects the v6 surface by reading `cubed`'s
+/// Minor `1` marked the addition of `focus.lost`, `focus.gained`,
+/// `power.blank`, `power.wake`, and the residency model. Minor `2` marks the
+/// SDS v6 §5.13 event-subscription surface (the extended `subscribe`/
+/// `unsubscribe`, the `subscriptions` verb, the new event payloads, and the
+/// `SubscribeResult`/`Snapshot` response model). A client (e.g. `cubekit` or
+/// the companion gateway's hard gate) detects the surface by reading `cubed`'s
 /// advertised [`PROTOCOL_VERSION`] from the `hello` OK response
 /// ([`HelloResult`]) and checking `minor >= PROTOCOL_MINOR`.
-pub const PROTOCOL_MINOR: u32 = 1;
+pub const PROTOCOL_MINOR: u32 = 2;
 
 /// Full protocol version string advertised by `cubed` in the `hello` OK
 /// response (`"<major>.<minor>"`). Not to be confused with the app/manifest
 /// `version` field (SDS §7.2, semver `"2.0.0"` in the worked example) — that
 /// is an unrelated per-app version, not the control-protocol version.
-pub const PROTOCOL_VERSION: &str = "1.1";
+pub const PROTOCOL_VERSION: &str = "1.2";
 
 /// Expected payload size for a single remote frame (SDS §6.2).
 pub const REMOTE_FRAME_PAYLOAD_BYTES: usize = 49_152;

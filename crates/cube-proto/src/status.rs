@@ -75,6 +75,16 @@ fn blank_source_default() -> String {
     "none".to_owned()
 }
 
+/// Why a resident app is paused (SDS v6 §5.13). Mirrors the SDK's
+/// `PauseCauses`: an app may be paused because it lost focus, because the
+/// display was blanked, or both. Carried inline on [`PerAppStatus`] and in the
+/// lifecycle snapshot / `app.state` event `cause`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PauseCauses {
+    pub focus_lost: bool,
+    pub blanked: bool,
+}
+
 /// Per-reason dropped-frame counters (SDS §5.1 / §11.1).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct FramesDropped {
@@ -121,4 +131,9 @@ pub struct PerAppStatus {
     /// Last `last_seq` value reported via `client.stats`.
     #[serde(default)]
     pub last_seq: u64,
+    /// Why this session is paused (SDS v6 §5.13). `None` for sessions that are
+    /// not paused or predate the field; omitted from the wire when absent so
+    /// the pre-§5.13 session shape round-trips unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pause_causes: Option<PauseCauses>,
 }

@@ -106,7 +106,7 @@ proptest! {
     /// (v5 wire compat).
     #[test]
     fn app_stopped_reason_roundtrip_sds_6_2(app in "[a-zA-Z0-9_-]{1,16}", reason in proptest::option::of("[a-z_]{1,32}")) {
-        let ev = Event::AppStopped { app: app.clone(), reason: reason.clone() };
+        let ev = Event::AppStopped { app: app.clone(), reason: reason.clone(), event_seq: None };
         let v = serde_json::to_value(&ev).unwrap();
         match &reason {
             Some(r) => prop_assert_eq!(v["reason"].as_str(), Some(r.as_str())),

@@ -42,6 +42,7 @@ fn status_report_roundtrips_every_field_sds_11_1() {
             latest_video_latency_us: None,
             total_remote_sender_dropped: 0,
             last_seq: 0,
+            pause_causes: None,
         },
     );
 
