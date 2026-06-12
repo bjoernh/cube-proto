@@ -8,6 +8,7 @@ use std::path::Path;
 use regex::Regex;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Deserializer, Serialize};
+use toml::value::{Table, Value};
 
 use crate::system::ConfigError;
 
@@ -156,6 +157,77 @@ pub(crate) fn validate_app_name(name: &str) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Emission (the "agree by construction" counterpart of the loader; SDS §7.2,
+// cubekit-spec §9.4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Serialize a [`Manifest`] to `manifest.toml` text (SDS §7.2).
+///
+/// The output is deterministic and key-sorted (a `toml::value::Table` is a
+/// sorted map) and is accepted and round-tripped by [`load_manifest`]. This is
+/// the emission half of "agree by construction" (cubekit-spec §9.4): the same
+/// crate that loads `manifest.toml` also emits it, so emitter and loader cannot
+/// drift. `Option` fields (`icon`, `requires`, `power`, and the SDK-compat
+/// `libcube`/`cubekit` fields) are omitted entirely when `None`.
+#[must_use]
+pub fn manifest_to_toml(m: &Manifest) -> String {
+    let mut root = Table::new();
+
+    // [app]
+    let mut app = Table::new();
+    app.insert("name".into(), Value::String(m.app.name.clone()));
+    app.insert(
+        "display_name".into(),
+        Value::String(m.app.display_name.clone()),
+    );
+    app.insert("version".into(), Value::String(m.app.version.to_string()));
+    // `ManifestCategory` serializes (rename_all = "lowercase") to its token.
+    app.insert(
+        "category".into(),
+        Value::try_from(m.app.category).expect("ManifestCategory serializes to a TOML string"),
+    );
+    if let Some(icon) = &m.app.icon {
+        app.insert("icon".into(), Value::String(icon.clone()));
+    }
+    root.insert("app".into(), Value::Table(app));
+
+    // [requires] — emitted only when present; libcube/cubekit each only if Some.
+    if let Some(req) = &m.requires {
+        let mut requires = Table::new();
+        if let Some(libcube) = &req.libcube {
+            requires.insert("libcube".into(), version_req_to_value(libcube));
+        }
+        if let Some(cubekit) = &req.cubekit {
+            requires.insert("cubekit".into(), version_req_to_value(cubekit));
+        }
+        requires.insert(
+            "inputs".into(),
+            Value::Array(req.inputs.iter().map(|s| Value::String(s.clone())).collect()),
+        );
+        requires.insert(
+            "sensors".into(),
+            Value::Array(req.sensors.iter().map(|s| Value::String(s.clone())).collect()),
+        );
+        requires.insert("network".into(), Value::Boolean(req.network));
+        root.insert("requires".into(), Value::Table(requires));
+    }
+
+    // [power]
+    if let Some(power) = &m.power {
+        let mut power_tbl = Table::new();
+        power_tbl.insert("idle_blank".into(), Value::Boolean(power.idle_blank));
+        root.insert("power".into(), Value::Table(power_tbl));
+    }
+
+    toml::to_string_pretty(&Value::Table(root)).expect("emitted manifest is a valid toml::Table")
+}
+
+/// Serialize a [`VersionReq`] to its canonical TOML string (e.g. `"^0.1"`).
+fn version_req_to_value(req: &VersionReq) -> Value {
+    Value::try_from(req).expect("VersionReq serializes to a TOML string")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
