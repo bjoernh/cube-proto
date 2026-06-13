@@ -34,7 +34,6 @@ pub struct CubedStatus {
     pub build_date: String,
     pub uptime_seconds: u64,
     pub protocol_version: String,
-    pub active_app: Option<String>,
     pub focused_app: Option<String>,
     pub launcher_state: String,
     /// Current count of resident non-launcher app sessions (focused + paused,
