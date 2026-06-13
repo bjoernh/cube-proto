@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use cube_proto::{Event, ParamValue, Request, Response, ResponseBody};
+use cube_proto::{Event, HelloResult, ParamValue, Request, Response, ResponseBody};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::{mpsc, oneshot};
@@ -76,7 +76,13 @@ pub fn resolve_host(spec: Option<&str>) -> Result<PathBuf, ClientError> {
 }
 
 /// Shared table mapping an in-flight request `id` to the caller awaiting it.
-type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Response>>>>;
+///
+/// The waiter receives the response as a raw [`serde_json::Value`]: typed
+/// callers ([`ControlClient::request`]) deserialize it into a [`Response`],
+/// while the generic pass-through ([`ControlClient::request_raw`], used by the
+/// companion gateway's `/rpc` relay) hands the `Value` back verbatim. One demux
+/// path, two views.
+type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<serde_json::Value>>>>;
 
 /// A connected, hello-completed control-plane client. The connection is driven
 /// by a background reader/writer task pair; this handle issues requests and
@@ -86,6 +92,7 @@ pub struct ControlClient {
     pending: Pending,
     events_rx: Option<mpsc::Receiver<Event>>,
     next_id: u64,
+    daemon_protocol: Option<String>,
 }
 
 impl ControlClient {
@@ -123,6 +130,19 @@ impl ControlClient {
         if !resp.ok {
             return Err(ClientError::Handshake(format!("{:?}", resp.body)));
         }
+        // Capture the daemon's advertised protocol version from the hello OK
+        // body (SDS v6 §7 / cubekit §3.5). Older daemons reply with a bare
+        // `{ok:true}` (no result) — then it is simply unknown. The companion
+        // gateway reads this back via [`ControlClient::daemon_protocol`] to run
+        // its §5.13 version gate.
+        let daemon_protocol = match &resp.body {
+            ResponseBody::Result { result: Some(val) } => {
+                serde_json::from_value::<HelloResult>(val.clone())
+                    .ok()
+                    .map(|hello| hello.protocol_version)
+            }
+            _ => None,
+        };
 
         // ── Spawn writer + reader tasks ──────────────────────────────────────
         let (write_tx, mut write_rx) = mpsc::unbounded_channel::<Vec<u8>>();
@@ -161,10 +181,14 @@ impl ControlClient {
                         // would stop being delivered and `set` would hang.
                         let _ = events_tx.try_send(ev);
                     }
-                } else if let Ok(resp) = serde_json::from_value::<Response>(val)
-                    && let Some(tx) = pending_reader.lock().unwrap().remove(&resp.id)
-                {
-                    let _ = tx.send(resp);
+                } else if let Some(id) = val.get("id").and_then(serde_json::Value::as_u64) {
+                    // Any non-event line carrying an `id` is a command response;
+                    // route the raw `Value` to its waiter (typed callers parse it
+                    // into a `Response`, `request_raw` keeps it verbatim).
+                    let waiter = pending_reader.lock().unwrap().remove(&id);
+                    if let Some(tx) = waiter {
+                        let _ = tx.send(val);
+                    }
                 }
             }
             // Connection gone: drop every waiter so awaiting requests error out
@@ -177,7 +201,16 @@ impl ControlClient {
             pending,
             events_rx: Some(events_rx),
             next_id: HELLO_ID + 1,
+            daemon_protocol,
         })
+    }
+
+    /// The connected daemon's advertised protocol version (`"<major>.<minor>"`),
+    /// captured from the `hello` OK body (SDS v6 §7). `None` on older daemons
+    /// that reply with a bare `{ok:true}`. The companion gateway gates on this.
+    #[must_use]
+    pub fn daemon_protocol(&self) -> Option<&str> {
+        self.daemon_protocol.as_deref()
     }
 
     /// Take ownership of the inbound [`Event`] stream. Returns `None` if it has
@@ -288,18 +321,49 @@ impl ControlClient {
     }
 
     /// Register a waiter for `id`, send the serialized request through the
-    /// writer task, and await the matching response (bounded by
+    /// writer task, and await the typed [`Response`] (bounded by
     /// [`REQUEST_TIMEOUT`]). The reader task routes the response back by `id`.
     pub(crate) async fn request(
         &mut self,
         id: u64,
         req: &Request,
     ) -> Result<Response, ClientError> {
+        let mut line = serde_json::to_vec(req).map_err(|e| ClientError::Protocol(e.to_string()))?;
+        line.push(b'\n');
+        let val = self.dispatch(id, line).await?;
+        serde_json::from_value(val).map_err(|e| ClientError::Protocol(e.to_string()))
+    }
+
+    /// Generic pass-through: forward an arbitrary `{cmd, …args}` envelope and
+    /// return the daemon's raw response [`serde_json::Value`].
+    ///
+    /// The gateway assigns a request `id` (the existing per-connection counter,
+    /// so it never collides with a `subscribe`/`set` id), injects it into
+    /// `value`, sends the line, and awaits the id-matched response — verbatim,
+    /// no command transformation. This is the transport under the companion
+    /// gateway's `/rpc` relay (companion-app.md "Command relay"); the daemon's
+    /// `ok`/`error` shaping is the caller's to map.
+    pub async fn request_raw(
+        &mut self,
+        mut value: serde_json::Value,
+    ) -> Result<serde_json::Value, ClientError> {
+        let id = self.alloc_id();
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::Value::from(id));
+        }
+        let mut line =
+            serde_json::to_vec(&value).map_err(|e| ClientError::Protocol(e.to_string()))?;
+        line.push(b'\n');
+        self.dispatch(id, line).await
+    }
+
+    /// Shared demux core: register a waiter for `id`, push the already-framed
+    /// `line` through the writer task, and await the id-matched raw response
+    /// `Value` (bounded by [`REQUEST_TIMEOUT`]).
+    async fn dispatch(&mut self, id: u64, line: Vec<u8>) -> Result<serde_json::Value, ClientError> {
         let (tx, rx) = oneshot::channel();
         self.pending.lock().unwrap().insert(id, tx);
 
-        let mut line = serde_json::to_vec(req).map_err(|e| ClientError::Protocol(e.to_string()))?;
-        line.push(b'\n');
         if self.write_tx.send(line).is_err() {
             self.pending.lock().unwrap().remove(&id);
             return Err(ClientError::Io(io::Error::new(
@@ -309,7 +373,7 @@ impl ControlClient {
         }
 
         match tokio::time::timeout(REQUEST_TIMEOUT, rx).await {
-            Ok(Ok(resp)) => Ok(resp),
+            Ok(Ok(val)) => Ok(val),
             // Reader task dropped the sender: the connection closed.
             Ok(Err(_)) => Err(ClientError::Io(io::Error::new(
                 ErrorKind::UnexpectedEof,
