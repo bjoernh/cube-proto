@@ -1,0 +1,26 @@
+[package]
+name = "cube-admin-client"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Shared JSON-Lines client for cubed's admin socket (/run/cube/admin): hello handshake, id-matched request/response demux, out-of-band event stream, and §5.13 subscriptions."
+
+[lints]
+workspace = true
+
+[lib]
+name = "cube_admin_client"
+path = "src/lib.rs"
+
+[dependencies]
+cube-proto = { path = "../cube-proto" }
+tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "time", "sync", "test-util"] }
+tempfile = "3"
