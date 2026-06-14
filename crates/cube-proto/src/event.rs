@@ -220,6 +220,10 @@ pub enum Event {
     EventsDropped { since_seq: u64 },
 
     // ── Input ────────────────────────────────────────────────────────────────
+    /// `player` is the slot index of the originating pad (cube-gamepad
+    /// "Multiplayer"; "Wire-format changes"). Additive: legacy daemons that
+    /// omit it deserialize as player 0, so the `{input_seq, t_us, type, code,
+    /// value}` shape stays backward-compatible.
     #[serde(rename = "input.event")]
     InputEvent {
         input_seq: u64,
@@ -228,21 +232,34 @@ pub enum Event {
         kind: String,
         code: String,
         value: i32,
+        #[serde(default)]
+        player: u8,
     },
 
+    /// `player` is the slot index whose held-key/axis state this snapshot
+    /// describes (cube-gamepad "Wire-format changes": snapshot/dropped become
+    /// per-player). Additive — omitted defaults to player 0.
     #[serde(rename = "input.snapshot")]
     InputSnapshot {
         input_seq: u64,
         device: String,
         keys: BTreeMap<String, i32>,
         abs: BTreeMap<String, i32>,
+        #[serde(default)]
+        player: u8,
     },
 
     #[serde(rename = "input.device_state")]
     InputDeviceState { device: String, connected: bool },
 
+    /// `player` is the slot index whose stream dropped (cube-gamepad
+    /// "Wire-format changes"). Additive — omitted defaults to player 0.
     #[serde(rename = "input.dropped")]
-    InputDropped { since_seq: u64 },
+    InputDropped {
+        since_seq: u64,
+        #[serde(default)]
+        player: u8,
+    },
 
     // ── Power / system ───────────────────────────────────────────────────────
     /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted when

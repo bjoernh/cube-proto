@@ -644,7 +644,8 @@ fn input_event_key_roundtrips_sds_6_1() {
         "t_us": 1_234_567_890_i64,
         "type": "key",
         "code": "BTN_A",
-        "value": 1
+        "value": 1,
+        "player": 0
     });
     roundtrip_event(j);
 }
@@ -657,9 +658,29 @@ fn input_event_abs_roundtrips_sds_6_1() {
         "t_us": 1_234_567_891_i64,
         "type": "abs",
         "code": "ABS_X",
-        "value": 17234
+        "value": 17234,
+        "player": 0
     });
     roundtrip_event(j);
+}
+
+#[test]
+fn input_event_without_player_defaults_to_zero() {
+    // Wire back-compat (cube-gamepad "Wire-format changes"): a legacy daemon
+    // omits `player`; it must deserialize as player 0, not fail.
+    let j = json!({
+        "event": "input.event",
+        "input_seq": 120,
+        "t_us": 1_234_567_890_i64,
+        "type": "key",
+        "code": "BTN_A",
+        "value": 1
+    });
+    let ev: Event = serde_json::from_value(j).expect("legacy input.event (no player) must decode");
+    match ev {
+        Event::InputEvent { player, .. } => assert_eq!(player, 0, "absent player defaults to 0"),
+        other => panic!("expected InputEvent, got {other:?}"),
+    }
 }
 
 #[test]
@@ -669,7 +690,8 @@ fn input_snapshot_event_roundtrips_sds_6_1() {
         "input_seq": 140,
         "device": "8BitDo SN30 Pro",
         "keys": {"BTN_A": 0, "BTN_B": 0, "BTN_START": 0},
-        "abs":  {"ABS_X": 16384, "ABS_Y": 16384}
+        "abs":  {"ABS_X": 16384, "ABS_Y": 16384},
+        "player": 0
     });
     roundtrip_event(j);
 }
@@ -696,7 +718,7 @@ fn input_device_state_event_disconnected_roundtrips_sds_6_1() {
 
 #[test]
 fn input_dropped_event_roundtrips_sds_6_1() {
-    let j = json!({"event": "input.dropped", "since_seq": 120});
+    let j = json!({"event": "input.dropped", "since_seq": 120, "player": 0});
     roundtrip_event(j);
 }
 
