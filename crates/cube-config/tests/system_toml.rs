@@ -36,9 +36,9 @@ fn system_toml_parses_full_example_sds_6_4() {
 
     // Input
     assert_eq!(cfg.input.system_controller_name_pattern, "8BitDo*");
-    assert_eq!(cfg.input.key_back, "BTN_SELECT");
-    assert_eq!(cfg.input.key_home, "BTN_START");
-    assert_eq!(cfg.input.key_power, "BTN_MODE");
+    assert_eq!(cfg.input.key_back, "Select");
+    assert_eq!(cfg.input.key_home, "Start");
+    assert_eq!(cfg.input.key_power, "Guide");
 
     // IMU
     assert!((cfg.imu.xy_rotation_deg - 0.0).abs() < f64::EPSILON);
@@ -82,9 +82,9 @@ mtu_hint = \"jumbo_recommended\"
 
 [input]
 system_controller_name_pattern = \"8BitDo*\"
-key_back = \"BTN_SELECT\"
-key_home = \"BTN_START\"
-key_power = \"BTN_MODE\"
+key_back = \"Select\"
+key_home = \"Start\"
+key_power = \"Guide\"
 
 [imu]
 xy_rotation_deg = 0.0

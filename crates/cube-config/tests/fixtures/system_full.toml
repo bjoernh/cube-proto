@@ -24,9 +24,10 @@ mtu_hint = "jumbo_recommended"
 # Pattern matched against evdev device NAME via udev monitor.
 # Wildcards: shell-style globs.
 system_controller_name_pattern = "8BitDo*"
-key_back   = "BTN_SELECT"
-key_home   = "BTN_START"
-key_power  = "BTN_MODE"
+# Reserved keys in CANONICAL button terms (cube-gamepad spec); Player 1 only.
+key_back   = "Select"
+key_home   = "Start"
+key_power  = "Guide"
 
 [imu]
 xy_rotation_deg = 0.0

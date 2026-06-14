@@ -90,12 +90,41 @@ pub struct RemoteRenderConfig {
 }
 
 /// `[input]` section.
+///
+/// Reserved-key values (`key_back`/`key_home`/`key_power`) are now **canonical
+/// button names** (`Select`/`Start`/`Guide`) per the cube-gamepad spec; the
+/// legacy evdev spellings (`BTN_SELECT`/`BTN_START`/`BTN_MODE`) are still
+/// accepted by the classifier for one release with a deprecation warning (M7).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputConfig {
     pub system_controller_name_pattern: String,
+    /// Reserved "back" key in canonical button terms (`Select`); Player 1 only.
     pub key_back: String,
+    /// Reserved "home" key in canonical button terms (`Start`); Player 1 only.
     pub key_home: String,
+    /// Reserved "power" key in canonical button terms (`Guide`); Player 1 only.
     pub key_power: String,
+    /// Local override directory for gamepad-profile TOMLs (cube-gamepad spec
+    /// §"Configuration & shipping"). Shipped read-only profiles live in
+    /// `/usr/share/cube/gamepad-profiles`; this is the local overlay that wins
+    /// on conflict. Absent → [`InputConfig::DEFAULT_PROFILES_DIR`].
+    #[serde(default)]
+    pub profiles_dir: Option<String>,
+}
+
+impl InputConfig {
+    /// The standard local profiles directory used when `profiles_dir` is unset
+    /// (cube-gamepad spec §"Discovery").
+    pub const DEFAULT_PROFILES_DIR: &'static str = "/etc/cube/gamepad-profiles";
+
+    /// The configured local profiles directory, or the standard default when
+    /// `profiles_dir` is absent from `system.toml`.
+    #[must_use]
+    pub fn resolved_profiles_dir(&self) -> &str {
+        self.profiles_dir
+            .as_deref()
+            .unwrap_or(Self::DEFAULT_PROFILES_DIR)
+    }
 }
 
 /// `[imu]` section.

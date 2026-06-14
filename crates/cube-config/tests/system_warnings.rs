@@ -32,9 +32,9 @@ spi_clock_hz = 35000000
 
 [input]
 system_controller_name_pattern = \"8BitDo*\"
-key_back = \"BTN_SELECT\"
-key_home = \"BTN_START\"
-key_power = \"BTN_MODE\"
+key_back = \"Select\"
+key_home = \"Start\"
+key_power = \"Guide\"
 
 [imu]
 xy_rotation_deg = 0.0

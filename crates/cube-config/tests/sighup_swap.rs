@@ -33,9 +33,10 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
         },
         input: InputConfig {
             system_controller_name_pattern: "8BitDo*".to_owned(),
-            key_back: "BTN_SELECT".to_owned(),
-            key_home: "BTN_START".to_owned(),
-            key_power: "BTN_MODE".to_owned(),
+            key_back: "Select".to_owned(),
+            key_home: "Start".to_owned(),
+            key_power: "Guide".to_owned(),
+            profiles_dir: None,
         },
         imu: ImuConfig {
             xy_rotation_deg: 0.0,
