@@ -723,6 +723,47 @@ fn input_dropped_event_roundtrips_sds_6_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Events: input.player_connected / input.player_disconnected
+//         (cube-gamepad "Wire-format changes")
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn input_player_connected_roundtrips() {
+    let j = json!({
+        "event": "input.player_connected",
+        "player": 1,
+        "name": "8BitDo SN30 Pro",
+        "vid_pid": "2dc8:9018"
+    });
+    roundtrip_event(j);
+}
+
+#[test]
+fn input_player_connected_without_vid_pid_roundtrips() {
+    // A pad with no USB VID:PID (some BT pads) omits the field on the wire; the
+    // omitted form must round-trip unchanged (skip_serializing_if on `None`).
+    let j = json!({
+        "event": "input.player_connected",
+        "player": 2,
+        "name": "Generic Gamepad"
+    });
+    let back = roundtrip_event(j);
+    match serde_json::from_value::<Event>(back).expect("decode") {
+        Event::InputPlayerConnected { player, vid_pid, .. } => {
+            assert_eq!(player, 2);
+            assert_eq!(vid_pid, None, "absent vid_pid decodes to None");
+        }
+        other => panic!("expected InputPlayerConnected, got {other:?}"),
+    }
+}
+
+#[test]
+fn input_player_disconnected_roundtrips() {
+    let j = json!({"event": "input.player_disconnected", "player": 1});
+    roundtrip_event(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Events: power.state, config.reloaded   (SDS §5.12, ARCH §7)
 // ─────────────────────────────────────────────────────────────────────────────
 

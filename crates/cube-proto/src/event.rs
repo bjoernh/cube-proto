@@ -261,6 +261,27 @@ pub enum Event {
         player: u8,
     },
 
+    /// A pad was assigned to player `player` (cube-gamepad "Multiplayer";
+    /// "Wire-format changes"). `name` is the controller's human-readable name;
+    /// `vid_pid` is its USB identity as a lower-case `"vvvv:pppp"` hex string —
+    /// the same identity used for slot persistence and tier-2 bindings — and is
+    /// omitted for pads with no VID:PID (some BT pads). Backs the companion's
+    /// controller roster and per-player "Player N joined" UI; it is also the
+    /// wire source for `cubekit`'s `RawEvent::Connected(true)`.
+    #[serde(rename = "input.player_connected")]
+    InputPlayerConnected {
+        player: u8,
+        name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        vid_pid: Option<String>,
+    },
+
+    /// A pad left player `player` (cube-gamepad "Multiplayer"; "Wire-format
+    /// changes"). The wire source for `cubekit`'s `RawEvent::Connected(false)`
+    /// and the companion's "Player N left" UI.
+    #[serde(rename = "input.player_disconnected")]
+    InputPlayerDisconnected { player: u8 },
+
     // ── Power / system ───────────────────────────────────────────────────────
     /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted when
     /// `None`, preserving the v5 `{"event":"power.state","state":..}` shape).
