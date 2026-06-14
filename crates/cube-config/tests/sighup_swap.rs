@@ -32,10 +32,13 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
             mtu_hint: "jumbo_recommended".into(),
         },
         input: InputConfig {
-            system_controller_name_pattern: "8BitDo*".to_owned(),
+            system_controller_name_pattern: Some("8BitDo*".to_owned()),
             key_back: "Select".to_owned(),
             key_home: "Start".to_owned(),
             key_power: "Guide".to_owned(),
+            device_allow: Vec::new(),
+            device_deny: Vec::new(),
+            max_players: 8,
             profiles_dir: None,
         },
         imu: ImuConfig {
