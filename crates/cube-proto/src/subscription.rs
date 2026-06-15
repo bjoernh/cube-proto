@@ -15,6 +15,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::event::PowerState;
+use crate::input::ControllerInfo;
 use crate::status::PauseCauses;
 
 /// `result` body of a `subscribe` OK response (SDS v6 §5.13).
@@ -47,6 +48,16 @@ pub struct Snapshot {
     pub brightness: Option<BrightnessSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub power: Option<PowerSnapshot>,
+    /// `input_bindings` snapshot section (cube-gamepad "Tier 2"): the
+    /// controller roster, present only when the `InputBindings` class was
+    /// subscribed with `snapshot: true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_bindings: Option<InputBindingsSnapshot>,
+    /// `input_capture` snapshot section (cube-gamepad "Tier 2"): the buttons
+    /// currently held at subscribe time, present only when the `InputCapture`
+    /// class was subscribed with `snapshot: true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_capture: Option<InputCaptureSnapshot>,
 }
 
 /// `lifecycle` snapshot section (SDS v6 §5.13). Bounded by `max_resident`:
@@ -93,4 +104,28 @@ pub struct BrightnessSnapshot {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerSnapshot {
     pub state: PowerState,
+}
+
+/// `input_bindings` snapshot section (cube-gamepad "Tier 2"): the connected
+/// controller roster — the same `[{ player, name, vid_pid, profile, connected }]`
+/// shape the `input.controllers` verb returns.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InputBindingsSnapshot {
+    pub controllers: Vec<ControllerInfo>,
+}
+
+/// `input_capture` snapshot section (cube-gamepad "Tier 2"): the canonical
+/// buttons held down at subscribe time, so a press-to-bind screen starts from
+/// the right baseline.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InputCaptureSnapshot {
+    pub held: Vec<HeldButton>,
+}
+
+/// One held canonical button in an [`InputCaptureSnapshot`]. `button` is the
+/// canonical button config-name (`"A"`, `"DPadUp"`, …).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeldButton {
+    pub player: u8,
+    pub button: String,
 }

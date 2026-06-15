@@ -764,6 +764,244 @@ fn input_player_disconnected_roundtrips() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Requests: tier-2 input bindings / tuning (cube-gamepad "Tier 2 — user
+//   bindings & the companion control-plane surface")
+//   input.controllers / input.bindings.get|set|reset / input.tuning.set
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn input_controllers_request_roundtrips() {
+    let j = json!({"id": 70, "cmd": "input.controllers"});
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_bindings_get_request_global_roundtrips() {
+    let j = json!({
+        "id": 71, "cmd": "input.bindings.get",
+        "vid_pid": "2dc8:9018", "scope": "global"
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_bindings_get_request_game_scope_roundtrips() {
+    // Per-game scope serializes as the externally-tagged `{"game": <app>}`.
+    let j = json!({
+        "id": 72, "cmd": "input.bindings.get",
+        "vid_pid": "2dc8:9018", "scope": {"game": "cubeboy"}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_bindings_set_request_roundtrips() {
+    // physical/action are canonical button config-names ("A", "ShoulderLeft", …).
+    let j = json!({
+        "id": 73, "cmd": "input.bindings.set",
+        "vid_pid": "2dc8:9018", "physical": "A", "action": "B", "scope": "global"
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_bindings_set_request_unbound_action_roundtrips() {
+    // The action may be the "unbound" sentinel (drop the event).
+    let j = json!({
+        "id": 74, "cmd": "input.bindings.set",
+        "vid_pid": "2dc8:9018", "physical": "Y", "action": "unbound",
+        "scope": {"game": "cubeboy"}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_bindings_reset_request_roundtrips() {
+    let j = json!({
+        "id": 75, "cmd": "input.bindings.reset",
+        "vid_pid": "2dc8:9018", "scope": "global"
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_tuning_set_request_full_roundtrips() {
+    // Exactly-representable f32 values so the f32→f64→JSON round-trip is stable.
+    let j = json!({
+        "id": 76, "cmd": "input.tuning.set",
+        "vid_pid": "2dc8:9018",
+        "dead_zone": 0.25, "stick_dpad_threshold": 0.5, "invert": false,
+        "scope": "global"
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn input_tuning_set_request_partial_omits_unset() {
+    // All of dead_zone/stick_dpad_threshold/invert/scope are optional; an
+    // unset field is omitted from the wire (the daemon defaults scope→Global).
+    let j = json!({
+        "id": 77, "cmd": "input.tuning.set",
+        "vid_pid": "2dc8:9018", "dead_zone": 0.25
+    });
+    let back = roundtrip_request(j);
+    match serde_json::from_value::<Request>(back).expect("decode") {
+        Request::InputTuningSet {
+            dead_zone, stick_dpad_threshold, invert, scope, ..
+        } => {
+            assert_eq!(dead_zone, Some(0.25));
+            assert_eq!(stick_dpad_threshold, None);
+            assert_eq!(invert, None);
+            assert_eq!(scope, None);
+        }
+        other => panic!("expected InputTuningSet, got {other:?}"),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Events: tier-2 input.binding_changed / input.tuning_changed / input.capture
+//   (cube-gamepad "Wire-format changes")
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn input_binding_changed_event_roundtrips() {
+    let j = json!({
+        "event": "input.binding_changed",
+        "vid_pid": "2dc8:9018",
+        "scope": "global",
+        "seq": 42,
+        "physical": "A",
+        "action": "B"
+    });
+    roundtrip_event(j);
+}
+
+#[test]
+fn input_binding_changed_reset_omits_physical_action() {
+    // A scope reset emits binding_changed with no single physical/action.
+    let j = json!({
+        "event": "input.binding_changed",
+        "vid_pid": "2dc8:9018",
+        "scope": {"game": "cubeboy"},
+        "seq": 43
+    });
+    let back = roundtrip_event(j);
+    match serde_json::from_value::<Event>(back).expect("decode") {
+        Event::InputBindingChanged { physical, action, seq, .. } => {
+            assert_eq!(physical, None);
+            assert_eq!(action, None);
+            assert_eq!(seq, 43);
+        }
+        other => panic!("expected InputBindingChanged, got {other:?}"),
+    }
+}
+
+#[test]
+fn binding_changed_carries_seq() {
+    // Echo-suppression: the editing client matches the seq of its own write,
+    // exactly like param.changed.
+    let j = json!({
+        "event": "input.binding_changed",
+        "vid_pid": "2dc8:9018", "scope": "global", "seq": 7,
+        "physical": "X", "action": "Y"
+    });
+    match serde_json::from_value::<Event>(j).expect("decode") {
+        Event::InputBindingChanged { seq, vid_pid, .. } => {
+            assert_eq!(seq, 7);
+            assert_eq!(vid_pid, "2dc8:9018");
+        }
+        other => panic!("expected InputBindingChanged, got {other:?}"),
+    }
+}
+
+#[test]
+fn input_tuning_changed_event_roundtrips() {
+    let j = json!({
+        "event": "input.tuning_changed",
+        "vid_pid": "2dc8:9018",
+        "scope": "global",
+        "seq": 12,
+        "dead_zone": 0.25,
+        "invert": true
+    });
+    roundtrip_event(j);
+}
+
+#[test]
+fn tuning_changed_carries_seq() {
+    let j = json!({
+        "event": "input.tuning_changed",
+        "vid_pid": "2dc8:9018", "scope": "global", "seq": 99
+    });
+    match serde_json::from_value::<Event>(j).expect("decode") {
+        Event::InputTuningChanged { seq, .. } => assert_eq!(seq, 99),
+        other => panic!("expected InputTuningChanged, got {other:?}"),
+    }
+}
+
+#[test]
+fn input_sample_shape() {
+    // The capture-tap event: {player, button, pressed}. button is a canonical
+    // button config-name (the physical key the user pressed, pre-remap).
+    let j = json!({"event": "input.capture", "player": 1, "button": "A", "pressed": true});
+    roundtrip_event(j);
+}
+
+#[test]
+fn input_sample_released_roundtrips() {
+    let j = json!({
+        "event": "input.capture", "player": 0, "button": "ShoulderLeft", "pressed": false
+    });
+    let back = roundtrip_event(j);
+    match serde_json::from_value::<Event>(back).expect("decode") {
+        Event::InputSample { player, button, pressed } => {
+            assert_eq!(player, 0);
+            assert_eq!(button, "ShoulderLeft");
+            assert!(!pressed);
+        }
+        other => panic!("expected InputSample, got {other:?}"),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// input.controllers roster entry  (ControllerInfo / ControllerProfile)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn input_controllers_roster_entry_recognized_roundtrips() {
+    use cube_proto::{ControllerInfo, ControllerProfile};
+    let j = json!({
+        "player": 0,
+        "name": "8BitDo SN30 Pro",
+        "vid_pid": "2dc8:9018",
+        "profile": "recognized",
+        "connected": true
+    });
+    let info: ControllerInfo = serde_json::from_value(j.clone()).expect("ControllerInfo decode");
+    assert_eq!(info.player, 0);
+    assert_eq!(info.profile, ControllerProfile::Recognized);
+    assert_eq!(info.vid_pid.as_deref(), Some("2dc8:9018"));
+    assert!(info.connected);
+    assert_eq!(serde_json::to_value(&info).expect("encode"), j);
+}
+
+#[test]
+fn input_controllers_roster_entry_generic_no_vid_pid_roundtrips() {
+    use cube_proto::{ControllerInfo, ControllerProfile};
+    // A pad with no USB VID:PID omits the field; profile is "generic".
+    let j = json!({
+        "player": 2,
+        "name": "Generic Gamepad",
+        "profile": "generic",
+        "connected": false
+    });
+    let info: ControllerInfo = serde_json::from_value(j.clone()).expect("decode");
+    assert_eq!(info.vid_pid, None);
+    assert_eq!(info.profile, ControllerProfile::Generic);
+    assert_eq!(serde_json::to_value(&info).expect("encode"), j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Events: power.state, config.reloaded   (SDS §5.12, ARCH §7)
 // ─────────────────────────────────────────────────────────────────────────────
 

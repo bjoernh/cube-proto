@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::input::BindingScope;
 use crate::status::PauseCauses;
 use crate::value::ParamValue;
 
@@ -281,6 +282,56 @@ pub enum Event {
     /// and the companion's "Player N left" UI.
     #[serde(rename = "input.player_disconnected")]
     InputPlayerDisconnected { player: u8 },
+
+    /// A tier-2 binding edit landed (cube-gamepad "Wire-format changes"). Lets
+    /// the companion (and any client) reflect edits live. `seq` is the
+    /// echo-suppression stamp — sourced from the same hub-publish path as
+    /// `param.changed`, so the editing client ignores the echo of its own write.
+    ///
+    /// For a single `input.bindings.set`, `physical`/`action` carry the changed
+    /// binding (canonical button config-names; `action` may be `"unbound"`). For
+    /// an `input.bindings.reset`, both are omitted — the whole `(vid_pid, scope)`
+    /// reverted to the profile 1:1 default.
+    #[serde(rename = "input.binding_changed")]
+    InputBindingChanged {
+        vid_pid: String,
+        scope: BindingScope,
+        seq: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        physical: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<String>,
+    },
+
+    /// A tier-2 tuning edit landed (cube-gamepad "Wire-format changes"). Mirrors
+    /// the `input.tuning.set` verb's optional fields: an omitted field was not
+    /// part of this edit. `seq` is the echo-suppression stamp (as
+    /// `param.changed`).
+    #[serde(rename = "input.tuning_changed")]
+    InputTuningChanged {
+        vid_pid: String,
+        scope: BindingScope,
+        seq: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        dead_zone: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stick_dpad_threshold: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
+    },
+
+    /// One sample from the opt-in `input.capture` tap (cube-gamepad "Wire-format
+    /// changes"): the live input behind the companion's press-to-bind and
+    /// button-highlight. `button` is the canonical button config-name the user
+    /// pressed (pre-remap). A read-only observation tap — events still route to
+    /// the focused app; subscribers merely also receive them. High-volume, so
+    /// the carrying class is lossy/coalescible (telemetry-style).
+    #[serde(rename = "input.capture")]
+    InputSample {
+        player: u8,
+        button: String,
+        pressed: bool,
+    },
 
     // ── Power / system ───────────────────────────────────────────────────────
     /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted when

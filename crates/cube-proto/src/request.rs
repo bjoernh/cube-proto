@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::input::BindingScope;
 use crate::value::{Damage, Format, ParamValue};
 
 /// `result` body of the `hello` OK response (SDS §5.3; SDS v6 delta §7).
@@ -233,6 +234,63 @@ pub enum Request {
     /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
     #[serde(rename = "power.wake")]
     PowerWake { id: u64 },
+
+    // ── Tier-2 gamepad bindings / tuning (cube-gamepad "Tier 2") ──────────────
+    /// List the connected-controller roster (cube-gamepad: `input.controllers`).
+    /// The OK `result` is a `[`[`ControllerInfo`](crate::ControllerInfo)`]`
+    /// array `[{ player, name, vid_pid, profile, connected }]`.
+    #[serde(rename = "input.controllers")]
+    InputControllers { id: u64 },
+
+    /// Read a controller's bindings + tuning for one scope (cube-gamepad
+    /// "Admin verbs"). `vid_pid` is the lower-case `"vvvv:pppp"` USB identity.
+    #[serde(rename = "input.bindings.get")]
+    InputBindingsGet {
+        id: u64,
+        vid_pid: String,
+        scope: BindingScope,
+    },
+
+    /// Set one binding for `(vid_pid, scope)`: remap canonical button `physical`
+    /// to `action` (cube-gamepad "Admin verbs"). `physical`/`action` are
+    /// canonical button config-names (`"A"`, `"ShoulderLeft"`, …); `action` may
+    /// be the `"unbound"` sentinel to drop the event. Reserved keys are never
+    /// bindable (rejected by `cubed`, not this crate).
+    #[serde(rename = "input.bindings.set")]
+    InputBindingsSet {
+        id: u64,
+        vid_pid: String,
+        physical: String,
+        action: String,
+        scope: BindingScope,
+    },
+
+    /// Reset `(vid_pid, scope)` to the profile's 1:1 default (cube-gamepad
+    /// "Admin verbs"): clears that scope's bindings.
+    #[serde(rename = "input.bindings.reset")]
+    InputBindingsReset {
+        id: u64,
+        vid_pid: String,
+        scope: BindingScope,
+    },
+
+    /// Set a tuning override for a controller (cube-gamepad "Admin verbs"). Each
+    /// of `dead_zone` / `stick_dpad_threshold` / `invert` is an optional partial
+    /// set — an omitted field leaves the prior value untouched. `scope` is
+    /// optional and defaults to [`BindingScope::Global`] at the daemon.
+    #[serde(rename = "input.tuning.set")]
+    InputTuningSet {
+        id: u64,
+        vid_pid: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        dead_zone: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stick_dpad_threshold: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        scope: Option<BindingScope>,
+    },
 }
 
 /// Default `app` selector for [`Request::Subscribe`] (SDS v6 §5.13): a client

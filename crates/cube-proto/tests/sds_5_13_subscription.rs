@@ -558,9 +558,69 @@ fn snapshot_omits_unsubscribed_sections_sds_5_13() {
         telemetry: None,
         brightness: Some(cube_proto::BrightnessSnapshot { value: 128 }),
         power: Some(cube_proto::PowerSnapshot { state: PowerState::Blanked }),
+        input_bindings: None,
+        input_capture: None,
     };
     let v = serde_json::to_value(&snap).expect("Snapshot encode");
     assert_eq!(v, json!({ "brightness": { "value": 128 }, "power": { "state": "blanked" } }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tier-2 snapshot sections (cube-gamepad): input_bindings roster / input_capture
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn subscribe_result_with_input_bindings_snapshot_roundtrips() {
+    // Subscribing to the InputBindings class with `snapshot:true` returns the
+    // controller roster as the baseline (cube-gamepad "Tier 2"; the same shape
+    // `input.controllers` returns).
+    let j = json!({
+        "sub_id": "s-7",
+        "event_seq": 9,
+        "snapshot": {
+            "input_bindings": {
+                "controllers": [
+                    {
+                        "player": 0, "name": "8BitDo SN30 Pro",
+                        "vid_pid": "2dc8:9018", "profile": "recognized", "connected": true
+                    },
+                    {
+                        "player": 1, "name": "Generic Gamepad",
+                        "profile": "generic", "connected": false
+                    }
+                ]
+            }
+        }
+    });
+    let r: SubscribeResult = serde_json::from_value(j.clone()).expect("SubscribeResult decode");
+    let bindings = r.snapshot.as_ref().expect("snapshot").input_bindings.as_ref().expect("section");
+    assert_eq!(bindings.controllers.len(), 2);
+    assert_eq!(bindings.controllers[0].player, 0);
+    assert_eq!(bindings.controllers[1].vid_pid, None);
+    assert_eq!(serde_json::to_value(&r).expect("encode"), j);
+}
+
+#[test]
+fn subscribe_result_with_input_capture_snapshot_roundtrips() {
+    // The capture tap's baseline: canonical buttons currently held per player.
+    let j = json!({
+        "sub_id": "s-8",
+        "event_seq": 3,
+        "snapshot": {
+            "input_capture": {
+                "held": [
+                    {"player": 0, "button": "A"},
+                    {"player": 1, "button": "DPadUp"}
+                ]
+            }
+        }
+    });
+    let r: SubscribeResult = serde_json::from_value(j.clone()).expect("SubscribeResult decode");
+    let capture = r.snapshot.as_ref().expect("snapshot").input_capture.as_ref().expect("section");
+    assert_eq!(capture.held.len(), 2);
+    assert_eq!(capture.held[0].button, "A");
+    assert_eq!(capture.held[1].player, 1);
+    assert_eq!(serde_json::to_value(&r).expect("encode"), j);
 }
 
 #[test]

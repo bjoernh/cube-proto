@@ -12,6 +12,7 @@ pub mod error;
 pub mod event;
 pub mod frame_header;
 pub mod handshake_datagram;
+pub mod input;
 pub mod request;
 pub mod response;
 pub mod session_token;
@@ -26,14 +27,15 @@ pub use event::{
     SubscriptionEndReason,
 };
 pub use handshake_datagram::{HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC};
+pub use input::{BindingScope, ControllerInfo, ControllerProfile};
 pub use request::{HelloResult, Request};
 pub use response::{Response, ResponseBody};
 pub use status::{
     CubedStatus, DisplayStatus, FramesDropped, PauseCauses, PerAppStatus, StatusReport,
 };
 pub use subscription::{
-    BrightnessSnapshot, LifecycleSnapshot, PowerSnapshot, SessionSnapshot, Snapshot,
-    SubscribeResult, TelemetrySnapshot,
+    BrightnessSnapshot, HeldButton, InputBindingsSnapshot, InputCaptureSnapshot, LifecycleSnapshot,
+    PowerSnapshot, SessionSnapshot, Snapshot, SubscribeResult, TelemetrySnapshot,
 };
 pub use value::{Color, Damage, Format, ParamValue, Vec2, Vec3};
 
