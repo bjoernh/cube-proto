@@ -326,11 +326,26 @@ pub enum Event {
     /// pressed (pre-remap). A read-only observation tap — events still route to
     /// the focused app; subscribers merely also receive them. High-volume, so
     /// the carrying class is lossy/coalescible (telemetry-style).
+    ///
+    /// `raw_type`/`raw_code`/`raw_value` are the *originating* evdev triple that
+    /// produced this canonical button — the symbolic kind (`key`/`btn`/`abs`/…),
+    /// the symbolic code (e.g. `BTN_SOUTH`, `ABS_HAT0Y`), and the raw evdev
+    /// value. They expose the pre-normalization wire value so an input
+    /// visualiser (`cubectl input watch`, LEDCube/cube#7) shows both the raw and
+    /// decoded view side by side, making axis-encoding bugs (unsigned `0..255`
+    /// vs zero-centred, LEDCube/cube#5) obvious at a glance. Additive: omitted
+    /// by daemons that don't populate the tap, and they default to `None`.
     #[serde(rename = "input.capture")]
     InputSample {
         player: u8,
         button: String,
         pressed: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        raw_type: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        raw_code: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        raw_value: Option<i32>,
     },
 
     // ── Power / system ───────────────────────────────────────────────────────

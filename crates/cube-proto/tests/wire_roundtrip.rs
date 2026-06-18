@@ -948,16 +948,43 @@ fn input_sample_shape() {
 }
 
 #[test]
+fn input_sample_with_raw_triple_roundtrips() {
+    // The enriched capture-tap event carries the originating evdev triple so an
+    // input visualiser shows raw + decoded together (cube#7): here a dpad-via-
+    // axis press arrives as ABS_HAT0Y = 255 yet decodes to the canonical DPadDown
+    // — the exact shape that makes axis-encoding bugs (cube#5) obvious.
+    let j = json!({
+        "event": "input.capture", "player": 0, "button": "DPadDown", "pressed": true,
+        "raw_type": "abs", "raw_code": "abs_hat0y", "raw_value": 255
+    });
+    let back = roundtrip_event(j);
+    match serde_json::from_value::<Event>(back).expect("decode") {
+        Event::InputSample { button, pressed, raw_type, raw_code, raw_value, .. } => {
+            assert_eq!(button, "DPadDown");
+            assert!(pressed);
+            assert_eq!(raw_type.as_deref(), Some("abs"));
+            assert_eq!(raw_code.as_deref(), Some("abs_hat0y"));
+            assert_eq!(raw_value, Some(255));
+        }
+        other => panic!("expected InputSample, got {other:?}"),
+    }
+}
+
+#[test]
 fn input_sample_released_roundtrips() {
     let j = json!({
         "event": "input.capture", "player": 0, "button": "ShoulderLeft", "pressed": false
     });
     let back = roundtrip_event(j);
     match serde_json::from_value::<Event>(back).expect("decode") {
-        Event::InputSample { player, button, pressed } => {
+        Event::InputSample { player, button, pressed, raw_type, raw_code, raw_value } => {
             assert_eq!(player, 0);
             assert_eq!(button, "ShoulderLeft");
             assert!(!pressed);
+            // Legacy daemons omit the raw evdev triple; it defaults to None.
+            assert_eq!(raw_type, None);
+            assert_eq!(raw_code, None);
+            assert_eq!(raw_value, None);
         }
         other => panic!("expected InputSample, got {other:?}"),
     }
