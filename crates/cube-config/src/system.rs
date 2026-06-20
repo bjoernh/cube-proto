@@ -64,6 +64,10 @@ pub struct SystemConfig {
     pub imu: ImuConfig,
     pub transitions: TransitionsConfig,
     pub power: PowerConfig,
+    /// `[apps]` section (SDS v6 §1/§7.2). Optional; a missing table parses
+    /// as the default (`max_resident = 1`).
+    #[serde(default)]
+    pub apps: AppsConfig,
     /// `[debug]` section. Optional — omitting it disables all debug taps.
     #[serde(default)]
     pub debug: DebugConfig,
@@ -89,12 +93,104 @@ pub struct RemoteRenderConfig {
 }
 
 /// `[input]` section.
+///
+/// Reserved-key values (`key_back`/`key_home`/`key_power`) are now **canonical
+/// button names** (`Select`/`Start`/`Guide`) per the cube-gamepad spec; the
+/// legacy evdev spellings (`BTN_SELECT`/`BTN_START`/`BTN_MODE`) are still
+/// accepted by the classifier for one release with a deprecation warning (M7).
+///
+/// Discovery is **capability-based** (cube-gamepad spec §"Discovery"; M8): any
+/// standard gamepad is adopted, filtered only by the `device_allow`/
+/// `device_deny` policy. The legacy `system_controller_name_pattern` glob is
+/// demoted to an optional deprecated alias (`Option`, `#[serde(default)]`) so
+/// existing `system.toml` files still parse; the policy fields all carry serde
+/// defaults so a config that omits them is valid.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputConfig {
-    pub system_controller_name_pattern: String,
+    /// **Deprecated** legacy single-controller name glob (cube-gamepad spec
+    /// §"Discovery"; M8). Retained as an optional alias for one release: when
+    /// `Some`, it seeds [`device_allow`](Self::device_allow) and a one-time
+    /// deprecation warning is emitted. New configs use the capability-based
+    /// `device_allow`/`device_deny` policy instead and omit this key (then it
+    /// parses as `None`).
+    #[serde(default)]
+    pub system_controller_name_pattern: Option<String>,
+    /// Reserved "back" key in canonical button terms (`Select`); Player 1 only.
     pub key_back: String,
+    /// Reserved "home" key in canonical button terms (`Start`); Player 1 only.
     pub key_home: String,
+    /// Reserved "power" key in canonical button terms (`Guide`); Player 1 only.
     pub key_power: String,
+    /// Capability-discovery **allowlist** (cube-gamepad spec §"Discovery").
+    /// Each entry is either a `VID:PID` string (e.g. `"2dc8:9018"`) matched
+    /// against the device's vendor:product, or a name glob matched against the
+    /// evdev device name. **Empty = allow any gamepad.** The deprecated
+    /// `system_controller_name_pattern`, when present, is folded in here.
+    #[serde(default)]
+    pub device_allow: Vec<String>,
+    /// Capability-discovery **denylist** (same entry forms as
+    /// [`device_allow`](Self::device_allow)). A deny match **wins over** an
+    /// allow match.
+    #[serde(default)]
+    pub device_deny: Vec<String>,
+    /// Maximum number of player slots (cube-gamepad spec §"Multiplayer"). Sizes
+    /// the Phase-4 per-player arrays; stored now, consumed there. Defaults to
+    /// [`InputConfig::DEFAULT_MAX_PLAYERS`].
+    #[serde(default = "default_max_players")]
+    pub max_players: u8,
+    /// Local override directory for gamepad-profile TOMLs (cube-gamepad spec
+    /// §"Configuration & shipping"). Shipped read-only profiles live in
+    /// `/usr/share/cube/gamepad-profiles`; this is the local overlay that wins
+    /// on conflict. Absent → [`InputConfig::DEFAULT_PROFILES_DIR`].
+    #[serde(default)]
+    pub profiles_dir: Option<String>,
+}
+
+/// serde default for [`InputConfig::max_players`].
+fn default_max_players() -> u8 {
+    InputConfig::DEFAULT_MAX_PLAYERS
+}
+
+impl InputConfig {
+    /// The standard local profiles directory used when `profiles_dir` is unset
+    /// (cube-gamepad spec §"Discovery").
+    pub const DEFAULT_PROFILES_DIR: &'static str = "/etc/cube/gamepad-profiles";
+
+    /// Default maximum number of player slots when `max_players` is absent
+    /// (cube-gamepad spec §"Multiplayer").
+    pub const DEFAULT_MAX_PLAYERS: u8 = 8;
+
+    /// The configured local profiles directory, or the standard default when
+    /// `profiles_dir` is absent from `system.toml`.
+    #[must_use]
+    pub fn resolved_profiles_dir(&self) -> &str {
+        self.profiles_dir
+            .as_deref()
+            .unwrap_or(Self::DEFAULT_PROFILES_DIR)
+    }
+
+    /// The effective capability-discovery allowlist: [`device_allow`] with the
+    /// deprecated [`system_controller_name_pattern`] folded in as an extra
+    /// name-glob entry (cube-gamepad spec §"Discovery"; M8).
+    ///
+    /// [`load_system`] seeds [`device_allow`] from the legacy pattern at parse
+    /// time, but configs built in-process (e.g. tests) may carry the pattern
+    /// without that fold. This method makes the discovery predicate robust to
+    /// both: the fold is **idempotent** (a pattern already present in
+    /// `device_allow` is not duplicated), so callers can apply it unconditionally.
+    ///
+    /// [`device_allow`]: Self::device_allow
+    /// [`system_controller_name_pattern`]: Self::system_controller_name_pattern
+    #[must_use]
+    pub fn effective_device_allow(&self) -> Vec<String> {
+        let mut allow = self.device_allow.clone();
+        if let Some(pattern) = &self.system_controller_name_pattern
+            && !allow.iter().any(|e| e == pattern)
+        {
+            allow.push(pattern.clone());
+        }
+        allow
+    }
 }
 
 /// `[imu]` section.
@@ -116,6 +212,22 @@ pub struct TransitionsConfig {
 pub struct PowerConfig {
     /// Seconds of inactivity before blanking. `0` means disabled (SDS §5.12).
     pub idle_blank_after_sec: u32,
+}
+
+/// `[apps]` section (SDS v6 §1/§7.2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppsConfig {
+    /// The maximum number of concurrently resident (focused + paused)
+    /// non-launcher app sessions. Default `1`, which reproduces v5's
+    /// implicit single-foreground/eviction behaviour. Must be `>= 1`.
+    pub max_resident: u32,
+}
+
+impl Default for AppsConfig {
+    fn default() -> Self {
+        Self { max_resident: 1 }
+    }
 }
 
 /// `[debug]` section — optional taps for diagnosing rendering behaviour.
@@ -151,12 +263,39 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
         message: e.to_string(),
     })?;
 
-    let cfg: SystemConfig = toml::from_str(&raw).map_err(|e| ConfigError::Parse {
+    let mut cfg: SystemConfig = toml::from_str(&raw).map_err(|e| ConfigError::Parse {
         path: path.to_owned(),
         message: e.to_string(),
     })?;
 
-    let report = validate_system(&cfg);
+    // SDS v6 §1: `[apps] max_resident` must be at least 1 — every cube runs
+    // at least one (foreground) app.
+    if cfg.apps.max_resident == 0 {
+        return Err(ConfigError::Parse {
+            path: path.to_owned(),
+            message: "[apps] max_resident must be at least 1 (got 0)".to_owned(),
+        });
+    }
+
+    let mut report = validate_system(&cfg);
+
+    // cube-gamepad spec §"Discovery" (M8): the legacy
+    // `system_controller_name_pattern` is a deprecated alias. When present it
+    // seeds the capability-discovery `device_allow` list (so the old
+    // single-controller filter still applies under capability-based discovery)
+    // and surfaces a one-time deprecation warning.
+    if cfg.input.system_controller_name_pattern.is_some() {
+        cfg.input.device_allow = cfg.input.effective_device_allow();
+        report.warnings.push(ValidationWarning {
+            code: "INPUT_DEPRECATED_NAME_PATTERN".to_owned(),
+            message: "`[input] system_controller_name_pattern` is deprecated; \
+                      it has been folded into `device_allow` for capability-based \
+                      discovery. Replace it with `device_allow`/`device_deny` \
+                      policy entries — the alias will be removed in a future release."
+                .to_owned(),
+        });
+    }
+
     Ok((cfg, report))
 }
 
