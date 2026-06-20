@@ -166,6 +166,7 @@ fn manifest_accepts_all_known_categories_sds_7_2() {
         ("utility", ManifestCategory::Utility),
         ("demo", ManifestCategory::Demo),
         ("system", ManifestCategory::System),
+        ("wellness", ManifestCategory::Wellness),
     ];
     for (s, expected) in cases {
         let body = SNAKE.replace("category = \"game\"", &format!("category = \"{s}\""));

@@ -25,6 +25,7 @@ pub enum ManifestCategory {
     Utility,
     Demo,
     System,
+    Wellness,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
