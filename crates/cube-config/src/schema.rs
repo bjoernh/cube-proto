@@ -70,6 +70,36 @@ pub struct ParamDef {
 // Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GamepadSchema
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Optional `[gamepad]` section in `schema.toml` (cube#17).
+///
+/// Controls system-level gamepad behaviours that cubed applies on behalf of
+/// the app. All fields default to the "standard animation" behaviour; apps
+/// that need direct access to the controlled buttons opt out here.
+#[derive(Debug, Clone)]
+pub struct GamepadSchema {
+    /// When `true` (the default for non-Game apps), L1/R1 button presses on
+    /// player 1's pad are intercepted by cubed to cycle the app's preset list
+    /// — R1 → next preset, L1 → previous preset, wrapping at both ends.
+    ///
+    /// Set to `false` in `schema.toml` to receive L1/R1 events directly (e.g.
+    /// for games or visualizers that use these buttons for their own purposes).
+    pub l1r1_preset_switching: bool,
+}
+
+impl Default for GamepadSchema {
+    fn default() -> Self {
+        Self { l1r1_preset_switching: true }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema
+// ─────────────────────────────────────────────────────────────────────────────
+
 /// Parsed `schema.toml` (SDS §5.4).
 #[derive(Debug)]
 pub struct Schema {
@@ -78,6 +108,8 @@ pub struct Schema {
     pub schema_version: u32,
     /// Parameters in the order they appear in the source file.
     pub params: IndexMap<String, ParamDef>,
+    /// Optional `[gamepad]` section — controls system-level gamepad behaviour.
+    pub gamepad: GamepadSchema,
 }
 
 impl Schema {
@@ -179,6 +211,7 @@ impl SchemaBuilder {
             app: self.app,
             schema_version: self.schema_version,
             params: self.params,
+            gamepad: GamepadSchema::default(),
         }
     }
 }
@@ -192,6 +225,14 @@ struct RawSchema {
     schema_version: Option<u32>,
     #[serde(default)]
     params: IndexMap<String, RawParamDef>,
+    #[serde(default)]
+    gamepad: RawGamepad,
+}
+
+#[derive(Deserialize, Default)]
+struct RawGamepad {
+    #[serde(default = "default_true")]
+    l1r1_preset_switching: bool,
 }
 
 #[derive(Deserialize)]
@@ -373,6 +414,9 @@ pub fn load_schema(path: &Path) -> Result<Schema, ConfigError> {
         app: String::new(), // not stored in schema.toml; set by caller if needed
         schema_version,
         params,
+        gamepad: GamepadSchema {
+            l1r1_preset_switching: raw.gamepad.l1r1_preset_switching,
+        },
     })
 }
 
