@@ -48,6 +48,7 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
         power: PowerConfig {
             idle_blank_after_sec: 0,
         },
+        debug: cube_config::DebugConfig::default(),
     }
 }
 

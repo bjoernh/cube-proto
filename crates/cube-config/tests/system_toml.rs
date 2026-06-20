@@ -61,6 +61,100 @@ fn system_toml_parses_full_example_sds_6_4() {
 }
 
 #[test]
+fn system_toml_debug_section_is_optional_defaults_to_none() {
+    // A config with no [debug] section must parse, with capture disabled.
+    let body = "\
+[display]
+drm_driver = \"vkms\"
+connector = \"Writeback-1\"
+mode = \"384x64@60\"
+refresh_hz = 60
+spi_clock_hz = 35000000
+
+[remote_render]
+enabled = false
+bind = \"127.0.0.1\"
+port = 2017
+mtu_hint = \"jumbo_recommended\"
+
+[input]
+system_controller_name_pattern = \"8BitDo*\"
+key_back = \"BTN_SELECT\"
+key_home = \"BTN_START\"
+key_power = \"BTN_MODE\"
+
+[imu]
+xy_rotation_deg = 0.0
+xz_rotation_deg = 0.0
+yz_rotation_deg = 0.0
+
+[transitions]
+mode = \"hard_cut\"
+
+[power]
+idle_blank_after_sec = 0
+";
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("system.toml");
+    std::fs::write(&p, body).unwrap();
+
+    let (cfg, _report) = load_system(&p).expect("config without [debug] must parse");
+    assert!(
+        cfg.debug.capture_on_present.is_none(),
+        "absent [debug] section must default capture_on_present to None"
+    );
+}
+
+#[test]
+fn system_toml_debug_capture_on_present_parses() {
+    // Setting [debug].capture_on_present is honoured as a path (mirrors the
+    // --capture-on-present CLI flag).
+    let body = "\
+[display]
+drm_driver = \"vkms\"
+connector = \"Writeback-1\"
+mode = \"384x64@60\"
+refresh_hz = 60
+spi_clock_hz = 35000000
+
+[remote_render]
+enabled = false
+bind = \"127.0.0.1\"
+port = 2017
+mtu_hint = \"jumbo_recommended\"
+
+[input]
+system_controller_name_pattern = \"8BitDo*\"
+key_back = \"BTN_SELECT\"
+key_home = \"BTN_START\"
+key_power = \"BTN_MODE\"
+
+[imu]
+xy_rotation_deg = 0.0
+xz_rotation_deg = 0.0
+yz_rotation_deg = 0.0
+
+[transitions]
+mode = \"hard_cut\"
+
+[power]
+idle_blank_after_sec = 0
+
+[debug]
+capture_on_present = \"/tmp/cube_fb.bin\"
+";
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("system.toml");
+    std::fs::write(&p, body).unwrap();
+
+    let (cfg, _report) = load_system(&p).expect("config with [debug] must parse");
+    assert_eq!(
+        cfg.debug.capture_on_present.as_deref(),
+        Some(std::path::Path::new("/tmp/cube_fb.bin")),
+    );
+}
+
+#[test]
 fn system_toml_missing_required_field_errors_sds_6_4() {
     // Drop `display.drm_driver` (a required key) and expect ConfigError::Parse.
     let body = "\
