@@ -64,6 +64,9 @@ pub struct SystemConfig {
     pub imu: ImuConfig,
     pub transitions: TransitionsConfig,
     pub power: PowerConfig,
+    /// `[debug]` section. Optional — omitting it disables all debug taps.
+    #[serde(default)]
+    pub debug: DebugConfig,
 }
 
 /// `[display]` section.
@@ -113,6 +116,21 @@ pub struct TransitionsConfig {
 pub struct PowerConfig {
     /// Seconds of inactivity before blanking. `0` means disabled (SDS §5.12).
     pub idle_blank_after_sec: u32,
+}
+
+/// `[debug]` section — optional taps for diagnosing rendering behaviour.
+///
+/// Every field here is re-loadable on SIGHUP (ARCH §4.11) so a debug tap can
+/// be turned on and off on a running daemon without a restart.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DebugConfig {
+    /// When set, every presented frame's pixels (packed XRGB8888) are written
+    /// to this path, overwriting it in place. This mirrors the
+    /// `--capture-on-present <path>` CLI flag; the CLI flag, when given, takes
+    /// precedence over this value. Unset (or removed on SIGHUP) disables the
+    /// tap. Only the real DRM backend honours it (the mock backend ignores it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_on_present: Option<PathBuf>,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
