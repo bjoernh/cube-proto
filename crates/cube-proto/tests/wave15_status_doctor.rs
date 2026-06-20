@@ -52,7 +52,6 @@ fn status_report_roundtrips_every_field_sds_11_1() {
             build_date: "2026-06-01T00:00:00+00:00".to_owned(),
             uptime_seconds: 600,
             protocol_version: "1.0".to_owned(),
-            active_app: Some("picture".to_owned()),
             focused_app: Some("picture".to_owned()),
             launcher_state: "idle".to_owned(),
             resident_apps: 1,
@@ -85,7 +84,6 @@ fn status_report_roundtrips_every_field_sds_11_1() {
     assert!(v["cubed"]["version"].is_string());
     assert!(v["cubed"]["uptime_seconds"].is_number());
     assert!(v["cubed"]["protocol_version"].is_string());
-    assert!(v["cubed"]["active_app"].is_string());
     assert!(v["cubed"]["focused_app"].is_string());
     assert!(v["cubed"]["launcher_state"].is_string());
     // SDS v6 §1.2 / delta §6: residency cap vs current count.
