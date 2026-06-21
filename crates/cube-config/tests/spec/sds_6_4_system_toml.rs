@@ -37,11 +37,16 @@ fn sds_6_4_fixture_matches_normative_values_sds_6_4() {
     assert_eq!(cfg.remote_render.port, 2017);
     assert_eq!(cfg.remote_render.mtu_hint, "jumbo_recommended");
 
-    // Input.
-    assert_eq!(cfg.input.system_controller_name_pattern, "8BitDo*");
-    assert_eq!(cfg.input.key_back, "BTN_SELECT");
-    assert_eq!(cfg.input.key_home, "BTN_START");
-    assert_eq!(cfg.input.key_power, "BTN_MODE");
+    // Input — reserved keys are canonical button names (cube-gamepad spec
+    // supersedes the SDS §6.4 evdev spelling; back-compat lives in the
+    // classifier).
+    assert_eq!(
+        cfg.input.system_controller_name_pattern.as_deref(),
+        Some("8BitDo*")
+    );
+    assert_eq!(cfg.input.key_back, "Select");
+    assert_eq!(cfg.input.key_home, "Start");
+    assert_eq!(cfg.input.key_power, "Guide");
 
     // IMU.
     assert!((cfg.imu.xy_rotation_deg - 0.0).abs() < f64::EPSILON);

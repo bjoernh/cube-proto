@@ -15,7 +15,7 @@
 use proptest::prelude::*;
 use serde_json::json;
 
-use cube_proto::{Color, Damage, ParamValue, Vec2, Vec3};
+use cube_proto::{Color, Damage, Event, FocusLostReason, ParamValue, Vec2, Vec3};
 
 proptest! {
     #[test]
@@ -88,5 +88,31 @@ proptest! {
         let v = serde_json::to_value(&p).unwrap();
         let p2: ParamValue = serde_json::from_value(v).unwrap();
         prop_assert_eq!(p, p2);
+    }
+
+    /// SDS v6 §6.1: `focus.lost {reason}` round-trips for every
+    /// `FocusLostReason` value (`app_switch | home | stopping`).
+    #[test]
+    fn focus_lost_reason_roundtrip_sds_6_1(idx in 0usize..3) {
+        let reason = [FocusLostReason::AppSwitch, FocusLostReason::Home, FocusLostReason::Stopping][idx];
+        let ev = Event::FocusLost { reason };
+        let v = serde_json::to_value(&ev).unwrap();
+        let ev2: Event = serde_json::from_value(v).unwrap();
+        prop_assert_eq!(ev, ev2);
+    }
+
+    /// SDS v6 §6.2 / delta §7: `app.stopped {app, reason}` round-trips for
+    /// any reason string, and the field is omitted entirely when absent
+    /// (v5 wire compat).
+    #[test]
+    fn app_stopped_reason_roundtrip_sds_6_2(app in "[a-zA-Z0-9_-]{1,16}", reason in proptest::option::of("[a-z_]{1,32}")) {
+        let ev = Event::AppStopped { app: app.clone(), reason: reason.clone(), event_seq: None };
+        let v = serde_json::to_value(&ev).unwrap();
+        match &reason {
+            Some(r) => prop_assert_eq!(v["reason"].as_str(), Some(r.as_str())),
+            None => prop_assert!(v.get("reason").is_none(), "reason must be omitted when None"),
+        }
+        let ev2: Event = serde_json::from_value(v).unwrap();
+        prop_assert_eq!(ev, ev2);
     }
 }

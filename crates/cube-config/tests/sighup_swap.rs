@@ -12,8 +12,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use cube_config::{
-    DisplayConfig, ImuConfig, InputConfig, RemoteRenderConfig, PowerConfig, SystemConfig,
-    SystemConfigHandle, TransitionsConfig,
+    AppsConfig, DisplayConfig, ImuConfig, InputConfig, PowerConfig, RemoteRenderConfig,
+    SystemConfig, SystemConfigHandle, TransitionsConfig,
 };
 
 fn make_cfg(refresh_hz: u32) -> SystemConfig {
@@ -32,10 +32,14 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
             mtu_hint: "jumbo_recommended".into(),
         },
         input: InputConfig {
-            system_controller_name_pattern: "8BitDo*".to_owned(),
-            key_back: "BTN_SELECT".to_owned(),
-            key_home: "BTN_START".to_owned(),
-            key_power: "BTN_MODE".to_owned(),
+            system_controller_name_pattern: Some("8BitDo*".to_owned()),
+            key_back: "Select".to_owned(),
+            key_home: "Start".to_owned(),
+            key_power: "Guide".to_owned(),
+            device_allow: Vec::new(),
+            device_deny: Vec::new(),
+            max_players: 8,
+            profiles_dir: None,
         },
         imu: ImuConfig {
             xy_rotation_deg: 0.0,
@@ -48,6 +52,7 @@ fn make_cfg(refresh_hz: u32) -> SystemConfig {
         power: PowerConfig {
             idle_blank_after_sec: 0,
         },
+        apps: AppsConfig::default(),
         debug: cube_config::DebugConfig::default(),
     }
 }

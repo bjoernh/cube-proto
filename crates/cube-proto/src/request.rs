@@ -14,7 +14,32 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::input::BindingScope;
 use crate::value::{Damage, Format, ParamValue};
+
+/// `result` body of the `hello` OK response (SDS §5.3; SDS v6 delta §7).
+///
+/// Today `cubed` replies to a compatible `hello` with an empty
+/// `{"id":..,"ok":true}` (no `result`) — see `cubed`'s
+/// `control_plane::handshake::do_handshake_sync`, which calls
+/// `send_ok_sync(fd, id)`. This type is the v6 wire shape for a richer OK
+/// response that lets a client (e.g. `cubekit`) read back `cubed`'s
+/// advertised protocol version and detect the v6 surface, per delta §7 /
+/// cubekit spec §3.5. Wiring `cubed`'s handshake to actually send this body
+/// is a daemon-wave change (see the `// TODO(sds-v6 2.1)` left in
+/// `handshake.rs`); this crate defines the type + round-trips it now so both
+/// sides share one source of truth ([`crate::PROTOCOL_VERSION`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HelloResult {
+    /// `cubed`'s advertised protocol version, `"<major>.<minor>"`
+    /// (see [`crate::PROTOCOL_VERSION`]).
+    pub protocol_version: String,
+    /// Optional surface/feature marker for forward-compat (e.g.
+    /// `"v6"`). Absent on older daemons; clients that only check
+    /// `protocol_version` minor can ignore this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+}
 
 /// Top-level request envelope. Internally tagged on `"cmd"`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -119,11 +144,53 @@ pub enum Request {
         key: Option<String>,
     },
 
+    /// Subscribe to an event stream (SDS v6 §5.13 "The commands").
+    ///
+    /// The legacy v5 param-watch shape `{id, app}` round-trips byte-identically:
+    /// `app` defaults to `"*"` on parse and is always re-serialized, while every
+    /// §5.13 field is omitted from the wire when unset. New fields:
+    /// `events` (class filter), `interval_ms` (telemetry coalescing cadence),
+    /// `snapshot` (request a baseline [`crate::SubscribeResult`] snapshot),
+    /// `max_events` / `timeout_ms` (bounded subscriptions).
     #[serde(rename = "subscribe")]
-    Subscribe { id: u64, app: String },
+    Subscribe {
+        id: u64,
+        #[serde(default = "subscribe_app_default")]
+        app: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        events: Option<Vec<String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interval_ms: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        snapshot: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_events: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
 
+    /// Cancel a subscription (SDS v6 §5.13 "The commands").
+    ///
+    /// Targets one subscription by `sub_id`, all of a connection's
+    /// subscriptions with `all: true`, or — for the legacy v5 param-watch shape
+    /// `{id, app}` — a single app's param stream. `all` is omitted on the wire
+    /// when `false`; `app`/`sub_id` are omitted when absent.
     #[serde(rename = "unsubscribe")]
-    Unsubscribe { id: u64, app: String },
+    Unsubscribe {
+        id: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        app: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sub_id: Option<String>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        all: bool,
+    },
+
+    /// List this connection's active subscriptions (SDS v6 §5.13
+    /// "The commands"): an introspection verb for debugging the subscription
+    /// surface.
+    #[serde(rename = "subscriptions")]
+    Subscriptions { id: u64 },
 
     // ── Presets ───────────────────────────────────────────────────────────────
     #[serde(rename = "preset.list")]
@@ -156,4 +223,85 @@ pub enum Request {
 
     #[serde(rename = "doctor.report")]
     DoctorReport { id: u64 },
+
+    // ── Power (admin) ─────────────────────────────────────────────────────────
+    /// Admin-only (SDS v6 §5.12): immediately blank the display, idempotent.
+    /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
+    #[serde(rename = "power.blank")]
+    PowerBlank { id: u64 },
+
+    /// Admin-only (SDS v6 §5.12): immediately wake the display, idempotent.
+    /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
+    #[serde(rename = "power.wake")]
+    PowerWake { id: u64 },
+
+    // ── Tier-2 gamepad bindings / tuning (cube-gamepad "Tier 2") ──────────────
+    /// List the connected-controller roster (cube-gamepad: `input.controllers`).
+    /// The OK `result` is a `[`[`ControllerInfo`](crate::ControllerInfo)`]`
+    /// array `[{ player, name, vid_pid, profile, connected }]`.
+    #[serde(rename = "input.controllers")]
+    InputControllers { id: u64 },
+
+    /// Read a controller's bindings + tuning for one scope (cube-gamepad
+    /// "Admin verbs"). `vid_pid` is the lower-case `"vvvv:pppp"` USB identity.
+    #[serde(rename = "input.bindings.get")]
+    InputBindingsGet {
+        id: u64,
+        vid_pid: String,
+        scope: BindingScope,
+    },
+
+    /// Set one binding for `(vid_pid, scope)`: remap canonical button `physical`
+    /// to `action` (cube-gamepad "Admin verbs"). `physical`/`action` are
+    /// canonical button config-names (`"A"`, `"ShoulderLeft"`, …); `action` may
+    /// be the `"unbound"` sentinel to drop the event. Reserved keys are never
+    /// bindable (rejected by `cubed`, not this crate).
+    #[serde(rename = "input.bindings.set")]
+    InputBindingsSet {
+        id: u64,
+        vid_pid: String,
+        physical: String,
+        action: String,
+        scope: BindingScope,
+    },
+
+    /// Reset `(vid_pid, scope)` to the profile's 1:1 default (cube-gamepad
+    /// "Admin verbs"): clears that scope's bindings.
+    #[serde(rename = "input.bindings.reset")]
+    InputBindingsReset {
+        id: u64,
+        vid_pid: String,
+        scope: BindingScope,
+    },
+
+    /// Set a tuning override for a controller (cube-gamepad "Admin verbs"). Each
+    /// of `dead_zone` / `stick_dpad_threshold` / `invert` is an optional partial
+    /// set — an omitted field leaves the prior value untouched. `scope` is
+    /// optional and defaults to [`BindingScope::Global`] at the daemon.
+    #[serde(rename = "input.tuning.set")]
+    InputTuningSet {
+        id: u64,
+        vid_pid: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        dead_zone: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stick_dpad_threshold: Option<f32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        scope: Option<BindingScope>,
+    },
+}
+
+/// Default `app` selector for [`Request::Subscribe`] (SDS v6 §5.13): a client
+/// that omits `app` subscribes to global event classes across all apps.
+fn subscribe_app_default() -> String {
+    "*".to_owned()
+}
+
+/// `skip_serializing_if` helper: keep `false` booleans off the wire so the
+/// legacy `{id, app}` unsubscribe shape round-trips byte-identically.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(b: &bool) -> bool {
+    !*b
 }

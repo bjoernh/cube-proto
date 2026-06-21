@@ -9,10 +9,15 @@ mod manifest;
 mod schema;
 mod system;
 
-pub use manifest::{AppSection, Manifest, ManifestCategory, RequiresSection, load_manifest};
-pub use schema::{ParamDef, ParamType, Schema, SchemaBuilder, UiMeta, load_schema};
+pub use manifest::{
+    AppSection, Manifest, ManifestCategory, PowerSection, RequiresSection, load_manifest,
+    manifest_to_toml,
+};
+pub use schema::{
+    GamepadSchema, ParamDef, ParamType, Schema, SchemaBuilder, UiMeta, load_schema, schema_to_toml,
+};
 pub use system::{
-    ConfigError, DebugConfig, DisplayConfig, ImuConfig, InputConfig, RemoteRenderConfig,
-    PowerConfig, SystemConfig, SystemConfigHandle, TransitionsConfig, ValidationReport,
+    AppsConfig, ConfigError, DebugConfig, DisplayConfig, ImuConfig, InputConfig, PowerConfig,
+    RemoteRenderConfig, SystemConfig, SystemConfigHandle, TransitionsConfig, ValidationReport,
     ValidationWarning, load_system,
 };

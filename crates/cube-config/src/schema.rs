@@ -9,6 +9,7 @@ use std::path::Path;
 use cube_proto::ParamValue;
 use indexmap::IndexMap;
 use serde::Deserialize;
+use toml::value::{Table, Value};
 
 use crate::system::ConfigError;
 
@@ -69,6 +70,36 @@ pub struct ParamDef {
 // Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GamepadSchema
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Optional `[gamepad]` section in `schema.toml` (cube#17).
+///
+/// Controls system-level gamepad behaviours that cubed applies on behalf of
+/// the app. All fields default to the "standard animation" behaviour; apps
+/// that need direct access to the controlled buttons opt out here.
+#[derive(Debug, Clone)]
+pub struct GamepadSchema {
+    /// When `true` (the default for non-Game apps), L1/R1 button presses on
+    /// player 1's pad are intercepted by cubed to cycle the app's preset list
+    /// — R1 → next preset, L1 → previous preset, wrapping at both ends.
+    ///
+    /// Set to `false` in `schema.toml` to receive L1/R1 events directly (e.g.
+    /// for games or visualizers that use these buttons for their own purposes).
+    pub l1r1_preset_switching: bool,
+}
+
+impl Default for GamepadSchema {
+    fn default() -> Self {
+        Self { l1r1_preset_switching: true }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema
+// ─────────────────────────────────────────────────────────────────────────────
+
 /// Parsed `schema.toml` (SDS §5.4).
 #[derive(Debug)]
 pub struct Schema {
@@ -77,6 +108,8 @@ pub struct Schema {
     pub schema_version: u32,
     /// Parameters in the order they appear in the source file.
     pub params: IndexMap<String, ParamDef>,
+    /// Optional `[gamepad]` section — controls system-level gamepad behaviour.
+    pub gamepad: GamepadSchema,
 }
 
 impl Schema {
@@ -178,6 +211,7 @@ impl SchemaBuilder {
             app: self.app,
             schema_version: self.schema_version,
             params: self.params,
+            gamepad: GamepadSchema::default(),
         }
     }
 }
@@ -191,6 +225,14 @@ struct RawSchema {
     schema_version: Option<u32>,
     #[serde(default)]
     params: IndexMap<String, RawParamDef>,
+    #[serde(default)]
+    gamepad: RawGamepad,
+}
+
+#[derive(Deserialize, Default)]
+struct RawGamepad {
+    #[serde(default = "default_true")]
+    l1r1_preset_switching: bool,
 }
 
 #[derive(Deserialize)]
@@ -372,7 +414,125 @@ pub fn load_schema(path: &Path) -> Result<Schema, ConfigError> {
         app: String::new(), // not stored in schema.toml; set by caller if needed
         schema_version,
         params,
+        gamepad: GamepadSchema {
+            l1r1_preset_switching: raw.gamepad.l1r1_preset_switching,
+        },
     })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Emission (the "agree by construction" counterpart of the loader; SDS §5.4,
+// cubekit-spec §9.4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Lowercase TOML token for a [`ParamType`] (`[params.<key>] type`).
+fn param_type_token(ty: ParamType) -> &'static str {
+    match ty {
+        ParamType::Bool => "bool",
+        ParamType::Int => "int",
+        ParamType::Float => "float",
+        ParamType::String => "string",
+        ParamType::Enum => "enum",
+        ParamType::Color => "color",
+        ParamType::Vec2 => "vec2",
+        ParamType::Vec3 => "vec3",
+    }
+}
+
+/// Map a [`ParamValue`] to a TOML scalar for the schema's `default`/`min`/`max`/
+/// `step` fields. Int→integer, Float→float, Bool→bool, String/Enum→string,
+/// Color→`#RRGGBB` hex string, Vec2/Vec3→`{ x, y[, z] }` tables.
+fn param_value_to_toml(v: &ParamValue) -> Value {
+    match v {
+        ParamValue::Bool(b) => Value::Boolean(*b),
+        ParamValue::Int(i) => Value::Integer(*i),
+        ParamValue::Float(f) => Value::Float(*f),
+        ParamValue::String(s) | ParamValue::Enum(s) => Value::String(s.clone()),
+        ParamValue::Color(c) => {
+            // `Color` has no `Display`, but its `Serialize` emits the `#RRGGBB`
+            // hex form the schema loader parses back.
+            Value::try_from(c).expect("Color serializes to a TOML string")
+        }
+        ParamValue::Vec2(p) => {
+            let mut t = Table::new();
+            t.insert("x".into(), Value::Float(f64::from(p.x)));
+            t.insert("y".into(), Value::Float(f64::from(p.y)));
+            Value::Table(t)
+        }
+        ParamValue::Vec3(p) => {
+            let mut t = Table::new();
+            t.insert("x".into(), Value::Float(f64::from(p.x)));
+            t.insert("y".into(), Value::Float(f64::from(p.y)));
+            t.insert("z".into(), Value::Float(f64::from(p.z)));
+            Value::Table(t)
+        }
+    }
+}
+
+/// Serialize a [`Schema`] to `schema.toml` text (SDS §5.4).
+///
+/// The output is deterministic and key-sorted (a `toml::value::Table` is a
+/// sorted map) and is accepted and round-tripped by [`load_schema`]. This is
+/// the emission half of "agree by construction" (cubekit-spec §9.4): the same
+/// crate that loads `schema.toml` also emits it, so emitter and loader cannot
+/// drift.
+#[must_use]
+pub fn schema_to_toml(s: &Schema) -> String {
+    let mut root = Table::new();
+    root.insert(
+        "schema_version".into(),
+        Value::Integer(i64::from(s.schema_version)),
+    );
+
+    let mut params_tbl = Table::new();
+    for (key, def) in &s.params {
+        let mut t = Table::new();
+        t.insert("key".into(), Value::String(def.key.clone()));
+        t.insert("type".into(), Value::String(param_type_token(def.ty).into()));
+        t.insert("default".into(), param_value_to_toml(&def.default));
+
+        if let Some(min) = &def.min {
+            t.insert("min".into(), param_value_to_toml(min));
+        }
+        if let Some(max) = &def.max {
+            t.insert("max".into(), param_value_to_toml(max));
+        }
+        if let Some(step) = &def.step {
+            t.insert("step".into(), param_value_to_toml(step));
+        }
+        if let Some(unit) = &def.unit {
+            t.insert("unit".into(), Value::String(unit.clone()));
+        }
+
+        t.insert("required".into(), Value::Boolean(def.required));
+        t.insert("readonly".into(), Value::Boolean(def.readonly));
+        t.insert("shareable".into(), Value::Boolean(def.shareable));
+
+        if let Some(values) = &def.enum_values {
+            let arr = values.iter().map(|s| Value::String(s.clone())).collect();
+            t.insert("values".into(), Value::Array(arr));
+        }
+
+        // UI metadata lives in a nested `ui` table (matching `RawParamDef::ui`).
+        let mut ui = Table::new();
+        if let Some(group) = &def.ui.group {
+            ui.insert("group".into(), Value::String(group.clone()));
+        }
+        if let Some(label) = &def.ui.label {
+            ui.insert("label".into(), Value::String(label.clone()));
+        }
+        if let Some(description) = &def.ui.description {
+            ui.insert("description".into(), Value::String(description.clone()));
+        }
+        if !ui.is_empty() {
+            t.insert("ui".into(), Value::Table(ui));
+        }
+
+        params_tbl.insert(key.clone(), Value::Table(t));
+    }
+    root.insert("params".into(), Value::Table(params_tbl));
+
+    toml::to_string_pretty(&Value::Table(root)).expect("emitted schema is a valid toml::Table")
 }
 
 fn convert_raw_param(

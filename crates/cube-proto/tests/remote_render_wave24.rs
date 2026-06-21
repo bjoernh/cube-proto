@@ -92,6 +92,25 @@ fn present_dropped_blanked_roundtrips_sds_6_2_present() {
     roundtrip_event(j);
 }
 
+/// SDS v6 §6.2 pins the **remote `present.dropped`** reason vocabulary to
+/// exactly `too_late | fragmented | focus_lost` — `blanked` is not part of
+/// that vocabulary in v6 (blanking does not affect remote-drop accounting;
+/// a blanked focused app keeps presenting and its frames are still
+/// `displayed`/`dropped` per the normal rules). This test pins the three
+/// v6 values round-tripping; `PresentDroppedReason::Blanked` remains a
+/// representable variant (shared with `buffer.release`'s closed reason set,
+/// SDS §5.1/§5.12) but `cubed` does not construct
+/// `present.dropped {reason:"blanked"}` — see
+/// `present_dropped_blanked_roundtrips_sds_6_2_present` above, which only
+/// pins that the *type* can represent it, not that v6 emits it.
+#[test]
+fn present_dropped_v6_reason_vocabulary_is_exactly_three_values_sds_6_2() {
+    for reason in ["too_late", "fragmented", "focus_lost"] {
+        let j = json!({"event": "present.dropped", "seq": 1, "reason": reason});
+        roundtrip_event(j);
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. Event::RemoteFramesDropped  (SDS §6.2)
 // ─────────────────────────────────────────────────────────────────────────────

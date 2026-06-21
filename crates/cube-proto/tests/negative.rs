@@ -24,6 +24,36 @@ fn hello_missing_protocol_version_is_err_sds_5_3() {
     assert!(r.is_err(), "hello without protocol_version must fail");
 }
 
+/// SDS v6 delta §7 / cubekit spec §3.5: a `hello` whose major version
+/// differs from [`cube_proto::PROTOCOL_MAJOR`] must be rejected with
+/// `EVERSION`.
+///
+/// The actual rejection (parsing `protocol_version`, comparing majors, and
+/// sending `EVERSION`) is `cubed`'s `control_plane::handshake` /
+/// `is_compatible_version` — exercised end-to-end by
+/// `cubed/tests/control_plane/handshake.rs::hello_version_mismatch_returns_eversion_and_closes_sds_5_3`.
+/// At the type level this crate pins: (1) an incompatible-major
+/// `protocol_version` string still decodes as a structurally valid `Hello`
+/// request (the version *value* is not type-checked — `EVERSION` is a
+/// semantic, not syntactic, rejection); (2) `EVERSION` exists in
+/// `CubeErrno` as the variant `cubed` returns for this case; and (3) major 1
+/// (this crate's `PROTOCOL_MAJOR`) is the version family v6 belongs to —
+/// `PROTOCOL_VERSION` starts with `"1."`.
+#[test]
+fn hello_incompatible_major_decodes_but_eversion_is_semantic_sds_5_3() {
+    let j = json!({"id": 1, "cmd": "hello", "protocol_version": "99.0"});
+    let r: Result<Request, _> = serde_json::from_value(j);
+    assert!(
+        r.is_ok(),
+        "an incompatible-major hello is structurally valid; EVERSION is cubed's semantic check"
+    );
+    let _ = CubeErrno::EVERSION;
+    assert!(
+        cube_proto::PROTOCOL_VERSION.starts_with(&format!("{}.", cube_proto::PROTOCOL_MAJOR)),
+        "PROTOCOL_VERSION must be within the PROTOCOL_MAJOR family (v6 is a minor bump, delta §7)"
+    );
+}
+
 #[test]
 fn register_missing_name_is_err_sds_5_3() {
     let j = json!({"id": 2, "cmd": "register"});
@@ -126,6 +156,27 @@ fn power_state_unknown_state_is_err_sds_5_12() {
     let j = json!({"event": "power.state", "state": "dimmed"});
     let r: Result<Event, _> = serde_json::from_value(j);
     assert!(r.is_err(), "power.state with unknown state must fail");
+}
+
+#[test]
+fn focus_lost_unknown_reason_is_err_sds_6_1() {
+    let j = json!({"event": "focus.lost", "reason": "minimized"});
+    let r: Result<Event, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "focus.lost with unknown reason must fail");
+}
+
+#[test]
+fn focus_lost_missing_reason_is_err_sds_6_1() {
+    let j = json!({"event": "focus.lost"});
+    let r: Result<Event, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "focus.lost without reason must fail");
+}
+
+#[test]
+fn present_dropped_unknown_reason_is_err_sds_6_2() {
+    let j = json!({"event": "present.dropped", "seq": 1, "reason": "wrong_format"});
+    let r: Result<Event, _> = serde_json::from_value(j);
+    assert!(r.is_err(), "present.dropped with unknown reason must fail");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

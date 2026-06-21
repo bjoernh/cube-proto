@@ -34,9 +34,21 @@ pub struct CubedStatus {
     pub build_date: String,
     pub uptime_seconds: u64,
     pub protocol_version: String,
-    pub active_app: Option<String>,
     pub focused_app: Option<String>,
     pub launcher_state: String,
+    /// Current count of resident non-launcher app sessions (focused + paused,
+    /// SDS v6 §1.2 / delta §6). Defaults to `0` for backward compatibility
+    /// with v5 status payloads.
+    #[serde(default)]
+    pub resident_apps: u32,
+    /// `[apps] max_resident` from `system.toml` (SDS v6 §1.2 / delta §6).
+    /// Defaults to `1` (v5-equivalent) for backward compatibility.
+    #[serde(default = "max_resident_default")]
+    pub max_resident: u32,
+}
+
+fn max_resident_default() -> u32 {
+    1
 }
 
 /// `display:` section (SDS §11.1).
@@ -51,6 +63,25 @@ pub struct DisplayStatus {
     pub frames_displayed: u64,
     pub frames_dropped: FramesDropped,
     pub spi_errors: u64,
+    /// What caused the display to be blanked (SDS v6 §5.12, delta §6/§8):
+    /// `none` (active), `idle` (idle timer), or `command` (`power.blank`).
+    /// Defaults to `none` for backward compatibility with v5 status payloads.
+    #[serde(default = "blank_source_default")]
+    pub blank_source: String,
+}
+
+fn blank_source_default() -> String {
+    "none".to_owned()
+}
+
+/// Why a resident app is paused (SDS v6 §5.13). Mirrors the SDK's
+/// `PauseCauses`: an app may be paused because it lost focus, because the
+/// display was blanked, or both. Carried inline on [`PerAppStatus`] and in the
+/// lifecycle snapshot / `app.state` event `cause`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PauseCauses {
+    pub focus_lost: bool,
+    pub blanked: bool,
 }
 
 /// Per-reason dropped-frame counters (SDS §5.1 / §11.1).
@@ -69,6 +100,15 @@ pub struct PerAppStatus {
     pub pid: Option<u32>,
     pub systemd_unit: String,
     pub connection_state: String,
+    /// Resident-session state (SDS v6 §1.1 / delta §6):
+    /// `starting | focused | paused | stopping`. Empty string for apps with
+    /// no tracked session (v5 compatibility / launcher).
+    #[serde(default)]
+    pub state: String,
+    /// Monotonic focus stamp; eviction order is by this value (SDS v6 §1.2 /
+    /// delta §6). `0` if the session has never been focused or is untracked.
+    #[serde(default)]
+    pub last_focused: u64,
     pub last_present_seq: u64,
     pub inflight_buffers: u32,
     pub fps_submitted: f32,
@@ -90,4 +130,9 @@ pub struct PerAppStatus {
     /// Last `last_seq` value reported via `client.stats`.
     #[serde(default)]
     pub last_seq: u64,
+    /// Why this session is paused (SDS v6 §5.13). `None` for sessions that are
+    /// not paused or predate the field; omitted from the wire when absent so
+    /// the pre-§5.13 session shape round-trips unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pause_causes: Option<PauseCauses>,
 }
