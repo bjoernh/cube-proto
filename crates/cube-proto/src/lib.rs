@@ -31,7 +31,8 @@ pub use input::{BindingScope, ControllerInfo, ControllerProfile};
 pub use request::{HelloResult, OverlayInputMode, Request, TransitionKind, TransitionSpec};
 pub use response::{Response, ResponseBody};
 pub use status::{
-    CubedStatus, DisplayStatus, FramesDropped, PauseCauses, PerAppStatus, StatusReport,
+    CompositorStatus, CubedStatus, DisplayStatus, FramesDropped, OverlayStatus, PauseCauses,
+    PerAppStatus, StatusReport,
 };
 pub use subscription::{
     BrightnessSnapshot, HeldButton, InputBindingsSnapshot, InputCaptureSnapshot, LifecycleSnapshot,

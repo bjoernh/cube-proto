@@ -22,6 +22,50 @@ pub struct StatusReport {
     pub cubed: CubedStatus,
     pub display: DisplayStatus,
     pub per_app: BTreeMap<String, PerAppStatus>,
+    /// `compositor:` section (SDS v7 §11.1, §5.13). Defaults so a pre-compositor
+    /// (v6) status payload without this key still deserializes.
+    #[serde(default)]
+    pub compositor: CompositorStatus,
+}
+
+/// `compositor:` section (SDS v7 §11.1, §5.13).
+///
+/// Snapshots the DRM-thread compositor's layer state: how many layers are
+/// composed this frame, whether a focus transition is animating (and a short
+/// human-readable description of it), the active overlays with provenance + z,
+/// who currently holds the modal input grab, and the cumulative
+/// frames-composited counter.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct CompositorStatus {
+    /// Number of layers composed into the output framebuffer this snapshot
+    /// (visible base / transition blend + client + system overlays).
+    pub composited_layers: u32,
+    /// `true` while a focus-change transition is animating.
+    pub transition_in_progress: bool,
+    /// Short description of the in-flight transition (kind + progress), or
+    /// `None` when idle. Omitted from the wire when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition: Option<String>,
+    /// The currently-composed overlays, each with its provenance and z.
+    pub overlays: Vec<OverlayStatus>,
+    /// Who currently owns the modal input grab — `base` when input routes to the
+    /// focused app, or `overlay:<layer>` for a modal client overlay (SDS §5.7.1).
+    pub input_grab: String,
+    /// Cumulative count of frames composed since `cubed` started.
+    pub frames_composited: u64,
+}
+
+/// One composited overlay in the [`CompositorStatus`] snapshot (SDS v7 §11.1).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct OverlayStatus {
+    /// `"system"` (cubed-rendered: banner / `overlay.text`) or `"client"`
+    /// (a privileged client's acquired layer).
+    pub provenance: String,
+    /// Stacking order; higher z composes on top (SDS §5.13).
+    pub z: i32,
+    /// The client `layer` id for a client overlay, or `None` for a system one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer: Option<u32>,
 }
 
 /// `cubed:` section (SDS §11.1).

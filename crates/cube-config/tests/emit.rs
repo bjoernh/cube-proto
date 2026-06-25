@@ -38,6 +38,7 @@ fn sample_manifest() -> Manifest {
             network: true,
         }),
         power: Some(PowerSection { idle_blank: true }),
+        overlay: None,
     }
 }
 
