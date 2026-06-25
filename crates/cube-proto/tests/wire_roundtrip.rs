@@ -1261,3 +1261,114 @@ fn paramvalue_vec3_roundtrips_sds_5_4() {
     let p2: ParamValue = serde_json::from_value(v).unwrap();
     assert_eq!(p, p2);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave 3 — client overlays (acquire/release/dismissed) + `layer` on present +
+//          the EPERM error code  (SDS v7 §5.13, §6.1)
+//
+// W3 adds the CLIENT-provided overlay surface (a privileged client acquires an
+// overlay layer and presents its own ARGB8888 frames into it) and the modal
+// input grab. RED contract — what GREEN must add to `cube-proto`:
+//
+//   - `Request::OverlayAcquire { id, z?, input? }`  (cmd `"overlay.acquire"`).
+//       `z` (optional, default 1) and `input` (optional, default `"none"`;
+//       one of `"none" | "modal"`) — SDS §6.1 worked example.
+//   - `Request::OverlayRelease { id, layer }`       (cmd `"overlay.release"`).
+//   - `Event::OverlayDismissed { layer, reason }`   (event `"overlay.dismissed"`;
+//       `reason ∈ "released" | "focus_lost" | "blanked"`).
+//   - an optional `layer` field on `Request::Present` (absent / `0` ⇒ base
+//       layer; an id returned by `overlay.acquire` ⇒ that overlay layer).
+//   - `CubeErrno::EPERM` — the capability-denied error for an unauthorized
+//       `overlay.acquire` (SDS §5.13 / §6.1).
+//
+// Each test references the new shapes only through the existing
+// `Request`/`Event`/`Response`/`CubeErrno` types, so the binary keeps compiling;
+// each one FAILS AT RUNTIME today (unknown `cmd`/`event`, the `deny_unknown_fields`
+// `layer` rejection, or the unknown `EPERM` token), which is the RED state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
+    // SDS §6.1 worked example — acquire a modal overlay at z = 1:
+    //   {"id":40,"cmd":"overlay.acquire","z":1,"input":"modal"}
+    //      → {"id":40,"ok":true,"result":{"layer":7}}
+    //   {"id":42,"cmd":"overlay.release","layer":7}
+    //   {"event":"overlay.dismissed","layer":7,"reason":"released"}
+    let acquire = json!({"id": 40, "cmd": "overlay.acquire", "z": 1, "input": "modal"});
+    roundtrip_request(acquire);
+
+    // `z` (default 1) and `input` (default "none") are optional — the minimal
+    // acquire omits both and must round-trip byte-for-byte (omitted fields stay
+    // off the wire via skip_serializing_if).
+    let acquire_min = json!({"id": 41, "cmd": "overlay.acquire"});
+    roundtrip_request(acquire_min);
+
+    // `input:"none"` is the visual-only (no grab) variant.
+    let acquire_none = json!({"id": 41, "cmd": "overlay.acquire", "input": "none"});
+    roundtrip_request(acquire_none);
+
+    // The acquire OK response carries the assigned `{layer}` in `result`. The
+    // result body is opaque JSON, so this already round-trips through `Response`
+    // — it documents the wire shape GREEN's handler returns.
+    let acquire_ok = json!({"id": 40, "ok": true, "result": {"layer": 7}});
+    roundtrip_response(acquire_ok);
+
+    // overlay.release names the layer to drop.
+    let release = json!({"id": 42, "cmd": "overlay.release", "layer": 7});
+    roundtrip_request(release);
+
+    // overlay.dismissed EVENT — all three SDS §6.1 reasons.
+    for reason in ["released", "focus_lost", "blanked"] {
+        let dismissed = json!({"event": "overlay.dismissed", "layer": 7, "reason": reason});
+        roundtrip_event(dismissed);
+    }
+}
+
+#[test]
+fn present_with_layer_field_roundtrips_sds_5_1() {
+    // SDS §6.1: `present` gains an optional `layer` selecting which compositor
+    // layer the buffer updates. `layer:7` targets an acquired overlay layer:
+    //   {"id":41,"cmd":"present","seq":1,"buffer_id":2,"layer":7}
+    let to_overlay = json!({
+        "id": 41,
+        "cmd": "present",
+        "seq": 1,
+        "buffer_id": 2,
+        "layer": 7
+    });
+    roundtrip_request(to_overlay);
+
+    // `layer:0` is the base layer (the v6 behaviour), and round-trips alongside
+    // `damage`.
+    let to_base = json!({
+        "id": 11,
+        "cmd": "present",
+        "seq": 100,
+        "buffer_id": 0,
+        "damage": {"x": 0, "y": 0, "w": 384, "h": 64},
+        "layer": 0
+    });
+    roundtrip_request(to_base);
+}
+
+#[test]
+fn eperm_error_roundtrips_sds_5_13() {
+    // SDS §5.13 / §6.1: `overlay.acquire` from a client without overlay
+    // capability returns EPERM. The closed `CubeErrno` set (SDS §5.3) must gain
+    // the `EPERM` variant; it serializes to/from its uppercase name.
+    let code: cube_proto::CubeErrno =
+        serde_json::from_value(json!("EPERM")).expect("CubeErrno must decode the \"EPERM\" token");
+    assert_eq!(serde_json::to_value(&code).unwrap(), json!("EPERM"));
+
+    // …and round-trips inside an `{ok:false,error:{…}}` response envelope.
+    let j = json!({
+        "id": 40,
+        "ok": false,
+        "error": {
+            "code": "EPERM",
+            "message": "overlay capability denied",
+            "context": {}
+        }
+    });
+    roundtrip_response(j);
+}

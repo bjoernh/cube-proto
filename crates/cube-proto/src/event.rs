@@ -79,6 +79,19 @@ pub enum FocusLostReason {
     Stopping,
 }
 
+/// Why a client overlay was dismissed (SDS v7 §5.13, §6.1). Delivered as the
+/// `reason` of an [`Event::OverlayDismissed`] event to the overlay's owner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayDismissReason {
+    /// The owner released it (`overlay.release`) or its connection closed.
+    Released,
+    /// Its base app lost focus, taking its over-self overlay with it.
+    FocusLost,
+    /// The display blanked.
+    Blanked,
+}
+
 /// Who initiated a parameter change. Stamped onto every `param.changed`
 /// and `params.changed` event so subscribers can route differently.
 /// Defaults to [`ChangeSource::Unknown`] for forward-compat — older
@@ -360,6 +373,14 @@ pub enum Event {
 
     #[serde(rename = "config.reloaded")]
     ConfigReloaded,
+
+    /// A client overlay is no longer composed (SDS v7 §5.13, §6.1): the owner
+    /// must stop presenting into `layer`. `reason` is why it was dismissed.
+    #[serde(rename = "overlay.dismissed")]
+    OverlayDismissed {
+        layer: u32,
+        reason: OverlayDismissReason,
+    },
 
     // ── Telemetry / brightness / subscription control (SDS v6 §5.13) ──────────
     /// Per-app frame telemetry sample (SDS v6 §5.13 "Event payloads —

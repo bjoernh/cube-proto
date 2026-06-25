@@ -28,6 +28,9 @@ pub enum CubeErrno {
     ENOTRUNNING,
     /// Schema file could not be parsed (SDS §5.4).
     ESCHEMA,
+    /// Overlay capability denied — an `overlay.acquire` from a client without
+    /// overlay capability (SDS v7 §5.13, §6.1).
+    EPERM,
 }
 
 /// Error body carried in `{"ok": false, "error": { … }}` responses (SDS §5.3).

@@ -71,6 +71,20 @@ pub struct TransitionSpec {
     pub duration_ms: Option<u32>,
 }
 
+/// Input mode requested at `overlay.acquire` (SDS v7 §5.13, §6.1, §5.7.1).
+///
+/// `none` is a purely visual overlay — input continues to the base app; `modal`
+/// pushes an input grab so non-reserved controller events route to the overlay
+/// owner while it is shown (§5.7.1). Serializes to/from `"none"` | `"modal"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayInputMode {
+    /// Purely visual — input continues to the focused base app.
+    None,
+    /// Input is routed to the overlay owner while the overlay is shown.
+    Modal,
+}
+
 /// Top-level request envelope. Internally tagged on `"cmd"`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "cmd", deny_unknown_fields)]
@@ -157,6 +171,11 @@ pub enum Request {
         buffer_id: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
         damage: Option<Damage>,
+        /// Which compositor layer this buffer updates (SDS v7 §5.13, §6.1).
+        /// Absent or `0` is the connection's **base** layer (the v6 behaviour);
+        /// a `layer` id returned by `overlay.acquire` targets that overlay layer.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        layer: Option<u32>,
     },
 
     // ── Parameters ────────────────────────────────────────────────────────────
@@ -310,6 +329,27 @@ pub enum Request {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         z: Option<i32>,
     },
+
+    // ── Client overlays (apps / launcher on /run/cube/ctl — SDS v7 §5.13, §6.1) ─
+    /// Acquire a client overlay layer (SDS v7 §5.13, §6.1). The OK `result`
+    /// carries the assigned `{layer}` id, used on a subsequent `present {layer}`
+    /// and on `overlay.release`. `z` (default 1) is the stacking order among
+    /// overlays; `input` (default `none`) is the input mode — `modal` grabs
+    /// controller input while the overlay is shown (§5.7.1). A client without
+    /// overlay capability is rejected with `EPERM`.
+    #[serde(rename = "overlay.acquire")]
+    OverlayAcquire {
+        id: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        z: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        input: Option<OverlayInputMode>,
+    },
+
+    /// Release a client overlay layer acquired with `overlay.acquire`
+    /// (SDS v7 §5.13, §6.1). `layer` is the id returned by `overlay.acquire`.
+    #[serde(rename = "overlay.release")]
+    OverlayRelease { id: u64, layer: u32 },
 
     // ── Tier-2 gamepad bindings / tuning (cube-gamepad "Tier 2") ──────────────
     /// List the connected-controller roster (cube-gamepad: `input.controllers`).
