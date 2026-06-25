@@ -41,6 +41,36 @@ pub struct HelloResult {
     pub surface: Option<String>,
 }
 
+/// Transition **kind** requested on a focus change (SDS v7 §5.13, §6.1).
+///
+/// `cut` | `crossfade` in v7; `wipe` / `dissolve` / `push` are reserved (the
+/// same machinery with a different per-pixel blend, addable without a protocol
+/// change). `cut` (or `duration_ms = 0`) is the hard-cut opt-out that
+/// reproduces v6's abrupt swap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionKind {
+    /// Hard cut — zero intermediate frames (the v6 behaviour).
+    Cut,
+    /// Per-channel crossfade between the outgoing and incoming images.
+    Crossfade,
+}
+
+/// Animated transition requested by the client that initiates a focus change,
+/// carried on `launch` / `focus` (SDS v7 §5.13, §6.1). Optional on both verbs;
+/// absent ⇒ `cubed` applies its configured default. `duration_ms` is clamped to
+/// a sane range by `cubed` and omitted on the wire when unset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransitionSpec {
+    /// `cut` | `crossfade` (§6.1).
+    pub kind: TransitionKind,
+    /// Transition window in milliseconds. Absent ⇒ `cubed`'s configured
+    /// default; `0` is equivalent to `cut`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u32>,
+}
+
 /// Top-level request envelope. Internally tagged on `"cmd"`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "cmd", deny_unknown_fields)]
@@ -70,7 +100,14 @@ pub enum Request {
     },
 
     #[serde(rename = "launch")]
-    Launch { id: u64, app: String },
+    Launch {
+        id: u64,
+        app: String,
+        /// Optional transition for the focus change this launch causes
+        /// (SDS v7 §5.13, §6.1). Absent ⇒ `cubed`'s configured default.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transition: Option<TransitionSpec>,
+    },
 
     #[serde(rename = "stop")]
     Stop {
@@ -80,7 +117,15 @@ pub enum Request {
     },
 
     #[serde(rename = "focus")]
-    Focus { id: u64, app: String },
+    Focus {
+        id: u64,
+        app: String,
+        /// Optional transition for this focus change (SDS v7 §5.13, §6.1).
+        /// Absent ⇒ `cubed`'s configured default; ignored if the visible base
+        /// does not actually change.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transition: Option<TransitionSpec>,
+    },
 
     #[serde(rename = "restart")]
     Restart { id: u64, app: String },

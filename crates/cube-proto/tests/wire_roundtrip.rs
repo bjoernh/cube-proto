@@ -419,6 +419,46 @@ fn power_wake_request_roundtrips_sds_5_12() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Transitions on launch / focus  (SDS v7 §5.13, §6.1)
+//
+// W1 adds an OPTIONAL `transition: { kind: "cut"|"crossfade", duration_ms?: u32 }`
+// field to `launch` and `focus`. These pin the exact wire shapes from SDS §6.1:
+//
+//   {"id":30,"cmd":"focus", "app":"snake",     "transition":{"kind":"crossfade","duration_ms":250}}
+//   {"id":31,"cmd":"launch","app":"pixelflow", "transition":{"kind":"cut"}}
+//
+// RED expectation: `Request::{Launch,Focus}` carry no `transition` field yet, and
+// the enum is `deny_unknown_fields`, so decoding either literal fails today. GREEN
+// adds the optional field (skip_serializing_if = none, so the existing
+// `launch_request_roundtrips_sds_5_3` / `focus_request_roundtrips_sds_5_3` — which
+// omit `transition` — keep round-tripping byte-for-byte).
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn transition_field_roundtrips_on_launch_sds_6_1() {
+    // `cut` is the hard-cut opt-out; `duration_ms` is omitted (optional).
+    let j = json!({
+        "id": 31,
+        "cmd": "launch",
+        "app": "pixelflow",
+        "transition": {"kind": "cut"}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_field_roundtrips_on_focus_sds_6_1() {
+    // `crossfade` with an explicit duration.
+    let j = json!({
+        "id": 30,
+        "cmd": "focus",
+        "app": "snake",
+        "transition": {"kind": "crossfade", "duration_ms": 250}
+    });
+    roundtrip_request(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Response envelope  (SDS §5.3)
 // ─────────────────────────────────────────────────────────────────────────────
 
