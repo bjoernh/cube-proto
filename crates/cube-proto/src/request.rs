@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::input::BindingScope;
-use crate::value::{Damage, Format, ParamValue};
+use crate::value::{Color, Damage, Format, ParamValue};
 
 /// `result` body of the `hello` OK response (SDS §5.3; SDS v6 delta §7).
 ///
@@ -279,6 +279,37 @@ pub enum Request {
     /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
     #[serde(rename = "power.wake")]
     PowerWake { id: u64 },
+
+    // ── System text overlay (admin peers only — SDS v7 §5.13, §6.1) ───────────
+    /// Render a line of text into a system overlay layer (SDS v7 §6.1). No
+    /// buffer / `SCM_RIGHTS` — `cubed` renders the text itself through its glyph
+    /// renderer, so it works on `/run/cube/admin` (STREAM). Admin-only:
+    /// `EBADREQ` on app connections (like `power.blank`) — enforced by `cubed`.
+    ///
+    /// `duration_ms` auto-hides after the interval (`0` = sticky until
+    /// `overlay.clear` or the next `overlay.text` on the same `z`); `z`
+    /// (default 1) and `color` (default white) are optional.
+    #[serde(rename = "overlay.text")]
+    OverlayText {
+        id: u64,
+        text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        z: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<Color>,
+    },
+
+    /// Remove a system text overlay (SDS v7 §6.1). `z` selects the layer to
+    /// clear; omitted clears all admin text overlays. Admin-only — `EBADREQ` on
+    /// app connections.
+    #[serde(rename = "overlay.clear")]
+    OverlayClear {
+        id: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        z: Option<i32>,
+    },
 
     // ── Tier-2 gamepad bindings / tuning (cube-gamepad "Tier 2") ──────────────
     /// List the connected-controller roster (cube-gamepad: `input.controllers`).

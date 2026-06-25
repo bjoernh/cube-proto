@@ -459,6 +459,81 @@ fn transition_field_roundtrips_on_focus_sds_6_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Wave 2 — ARGB8888 overlay format + admin text overlay  (SDS v7 §5.13, §6.1)
+//
+// W2 adds the overlay pixel format and the two admin-only system-text-overlay
+// commands. RED contract (what GREEN must add to `cube-proto`):
+//
+//   - `Format::Argb8888` with the wire token `"ARGB8888"` (alongside `RGB565`).
+//   - `Request::OverlayText { id, text, duration_ms?, z?, color? }`  (cmd
+//     `"overlay.text"`) — system-rendered text overlay (no buffer/SCM_RIGHTS).
+//   - `Request::OverlayClear { id, z? }`  (cmd `"overlay.clear"`).
+//
+// All three pin the exact JSON from SDS §6.1. They reference the new shapes only
+// through `serde_json` so the binary keeps compiling: until GREEN lands the
+// variants the decode FAILS AT RUNTIME (unknown `Format` variant / unknown
+// `cmd`), which is the RED state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn format_argb8888_roundtrips_sds_5_1() {
+    // SDS v7 §5.13 / §6.1: overlay buffers use ARGB8888 (real alpha for `over`
+    // compositing). The wire token is "ARGB8888". Decode-through `Format` so the
+    // test compiles today and fails at runtime until the variant exists.
+    let v = json!("ARGB8888");
+    let f: Format =
+        serde_json::from_value(v.clone()).expect("Format must decode the \"ARGB8888\" token");
+    let back = serde_json::to_value(&f).expect("encode");
+    assert_eq!(back, v, "ARGB8888 round-trips to the same wire token");
+    // RGB565 still decodes (the new variant is additive, not a replacement).
+    let r: Format = serde_json::from_value(json!("RGB565")).expect("RGB565 still decodes");
+    assert_ne!(
+        serde_json::to_value(&r).unwrap(),
+        back,
+        "ARGB8888 and RGB565 are distinct variants"
+    );
+}
+
+#[test]
+fn overlay_text_command_roundtrips_sds_5_13() {
+    // SDS §6.1 worked example — admin-only system text overlay (all fields):
+    //   {"id":50,"cmd":"overlay.text","text":"Hello TEST",
+    //    "duration_ms":3000,"z":1,"color":"#FFFFFF"}
+    let j = json!({
+        "id": 50,
+        "cmd": "overlay.text",
+        "text": "Hello TEST",
+        "duration_ms": 3000,
+        "z": 1,
+        "color": "#FFFFFF"
+    });
+    roundtrip_request(j);
+
+    // `duration_ms` / `z` / `color` are all optional (§6.1: "z (default 1) and
+    // color (default white) are optional"; duration_ms `0` = sticky). The
+    // minimal form omits them and must round-trip byte-for-byte (the omitted
+    // fields stay off the wire via skip_serializing_if).
+    let minimal = json!({
+        "id": 51,
+        "cmd": "overlay.text",
+        "text": "x"
+    });
+    roundtrip_request(minimal);
+}
+
+#[test]
+fn overlay_clear_command_roundtrips_sds_5_13() {
+    // SDS §6.1: {"id":51,"cmd":"overlay.clear","z":1}.
+    let j = json!({"id": 52, "cmd": "overlay.clear", "z": 1});
+    roundtrip_request(j);
+
+    // `z` is optional — "overlay.clear with no z clears all admin text
+    // overlays" (§6.1). The clear-all form omits z and round-trips.
+    let clear_all = json!({"id": 53, "cmd": "overlay.clear"});
+    roundtrip_request(clear_all);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Response envelope  (SDS §5.3)
 // ─────────────────────────────────────────────────────────────────────────────
 
