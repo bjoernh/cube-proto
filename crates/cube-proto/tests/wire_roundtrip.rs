@@ -459,6 +459,50 @@ fn transition_field_roundtrips_on_focus_sds_6_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// W5 — four NEW transition kinds (SDS v7 §5.13; plan "Add four compositor
+// transition effects"). The wire `TransitionKind` reserves room for these
+// ("`wipe` / `dissolve` / `push` are reserved … addable without a protocol
+// change", request.rs:46). RED: until GREEN adds the variants the snake_case
+// tokens fail to decode AT RUNTIME (unknown enum variant), which is the RED
+// signal for this crate. Tokens: `dissolve`, `dip_to_black`, `particle_dissolve`,
+// `push`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn transition_dissolve_roundtrips_sds_5_13() {
+    let j = json!({"id": 60, "cmd": "focus", "app": "snake", "transition": {"kind": "dissolve"}});
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_dip_to_black_roundtrips_sds_5_13() {
+    let j = json!({
+        "id": 61,
+        "cmd": "launch",
+        "app": "pixelflow",
+        "transition": {"kind": "dip_to_black", "duration_ms": 400}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_particle_dissolve_roundtrips_sds_5_13() {
+    let j = json!({
+        "id": 62,
+        "cmd": "focus",
+        "app": "snake",
+        "transition": {"kind": "particle_dissolve", "duration_ms": 600}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_push_roundtrips_sds_5_13() {
+    let j = json!({"id": 63, "cmd": "focus", "app": "snake", "transition": {"kind": "push"}});
+    roundtrip_request(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Wave 2 — ARGB8888 overlay format + admin text overlay  (SDS v7 §5.13, §6.1)
 //
 // W2 adds the overlay pixel format and the two admin-only system-text-overlay

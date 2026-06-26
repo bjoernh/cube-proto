@@ -43,10 +43,10 @@ pub struct HelloResult {
 
 /// Transition **kind** requested on a focus change (SDS v7 §5.13, §6.1).
 ///
-/// `cut` | `crossfade` in v7; `wipe` / `dissolve` / `push` are reserved (the
-/// same machinery with a different per-pixel blend, addable without a protocol
-/// change). `cut` (or `duration_ms = 0`) is the hard-cut opt-out that
-/// reproduces v6's abrupt swap.
+/// `cut` | `crossfade` plus the crossfade-family effects `dissolve` |
+/// `dip_to_black` | `particle_dissolve` | `push` — all the same machinery with a
+/// different per-pixel sample arm (added without a protocol change). `cut` (or
+/// `duration_ms = 0`) is the hard-cut opt-out that reproduces v6's abrupt swap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransitionKind {
@@ -54,6 +54,17 @@ pub enum TransitionKind {
     Cut,
     /// Per-channel crossfade between the outgoing and incoming images.
     Crossfade,
+    /// Whole-pixel random fizzle reveal of the incoming image (`dissolve`).
+    Dissolve,
+    /// Fade the outgoing image to black, then up to the incoming image
+    /// (`dip_to_black`).
+    DipToBlack,
+    /// Vertical particle curtain — the incoming image rains in from the top
+    /// (`particle_dissolve`).
+    ParticleDissolve,
+    /// Vertical slide — the incoming image pushes in from the top, displacing
+    /// the outgoing image out the bottom (`push`).
+    Push,
 }
 
 /// Animated transition requested by the client that initiates a focus change,
