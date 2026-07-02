@@ -733,9 +733,19 @@ fn input_player_connected_roundtrips() {
         "event": "input.player_connected",
         "player": 1,
         "name": "8BitDo SN30 Pro",
-        "vid_pid": "2dc8:9018"
+        "vid_pid": "2dc8:9018",
+        "hw_id": "E4:17:D8:25:FB:42"
     });
-    roundtrip_event(j);
+    let back = roundtrip_event(j);
+    match serde_json::from_value::<Event>(back).expect("decode") {
+        // The stable per-device id (LEDCube/cube#28) round-trips and lets a
+        // client map this physical pad to its slot even when a second
+        // identical-model pad is present.
+        Event::InputPlayerConnected { hw_id, .. } => {
+            assert_eq!(hw_id.as_deref(), Some("E4:17:D8:25:FB:42"));
+        }
+        other => panic!("expected InputPlayerConnected, got {other:?}"),
+    }
 }
 
 #[test]
@@ -749,9 +759,15 @@ fn input_player_connected_without_vid_pid_roundtrips() {
     });
     let back = roundtrip_event(j);
     match serde_json::from_value::<Event>(back).expect("decode") {
-        Event::InputPlayerConnected { player, vid_pid, .. } => {
+        Event::InputPlayerConnected {
+            player,
+            vid_pid,
+            hw_id,
+            ..
+        } => {
             assert_eq!(player, 2);
             assert_eq!(vid_pid, None, "absent vid_pid decodes to None");
+            assert_eq!(hw_id, None, "absent hw_id decodes to None");
         }
         other => panic!("expected InputPlayerConnected, got {other:?}"),
     }
@@ -847,7 +863,11 @@ fn input_tuning_set_request_partial_omits_unset() {
     let back = roundtrip_request(j);
     match serde_json::from_value::<Request>(back).expect("decode") {
         Request::InputTuningSet {
-            dead_zone, stick_dpad_threshold, invert, scope, ..
+            dead_zone,
+            stick_dpad_threshold,
+            invert,
+            scope,
+            ..
         } => {
             assert_eq!(dead_zone, Some(0.25));
             assert_eq!(stick_dpad_threshold, None);
@@ -887,7 +907,12 @@ fn input_binding_changed_reset_omits_physical_action() {
     });
     let back = roundtrip_event(j);
     match serde_json::from_value::<Event>(back).expect("decode") {
-        Event::InputBindingChanged { physical, action, seq, .. } => {
+        Event::InputBindingChanged {
+            physical,
+            action,
+            seq,
+            ..
+        } => {
             assert_eq!(physical, None);
             assert_eq!(action, None);
             assert_eq!(seq, 43);
@@ -959,7 +984,14 @@ fn input_sample_with_raw_triple_roundtrips() {
     });
     let back = roundtrip_event(j);
     match serde_json::from_value::<Event>(back).expect("decode") {
-        Event::InputSample { button, pressed, raw_type, raw_code, raw_value, .. } => {
+        Event::InputSample {
+            button,
+            pressed,
+            raw_type,
+            raw_code,
+            raw_value,
+            ..
+        } => {
             assert_eq!(button, "DPadDown");
             assert!(pressed);
             assert_eq!(raw_type.as_deref(), Some("abs"));
@@ -977,7 +1009,14 @@ fn input_sample_released_roundtrips() {
     });
     let back = roundtrip_event(j);
     match serde_json::from_value::<Event>(back).expect("decode") {
-        Event::InputSample { player, button, pressed, raw_type, raw_code, raw_value } => {
+        Event::InputSample {
+            player,
+            button,
+            pressed,
+            raw_type,
+            raw_code,
+            raw_value,
+        } => {
             assert_eq!(player, 0);
             assert_eq!(button, "ShoulderLeft");
             assert!(!pressed);
@@ -1001,6 +1040,7 @@ fn input_controllers_roster_entry_recognized_roundtrips() {
         "player": 0,
         "name": "8BitDo SN30 Pro",
         "vid_pid": "2dc8:9018",
+        "hw_id": "E4:17:D8:25:FB:42",
         "profile": "recognized",
         "connected": true
     });
@@ -1008,8 +1048,33 @@ fn input_controllers_roster_entry_recognized_roundtrips() {
     assert_eq!(info.player, 0);
     assert_eq!(info.profile, ControllerProfile::Recognized);
     assert_eq!(info.vid_pid.as_deref(), Some("2dc8:9018"));
+    // Stable per-device id (LEDCube/cube#28): distinguishes two identical pads.
+    assert_eq!(info.hw_id.as_deref(), Some("E4:17:D8:25:FB:42"));
     assert!(info.connected);
     assert_eq!(serde_json::to_value(&info).expect("encode"), j);
+}
+
+#[test]
+fn input_controllers_roster_two_identical_pads_differ_by_hw_id() {
+    use cube_proto::ControllerInfo;
+    // Two controllers of the SAME model (identical name + vid_pid) are
+    // distinguishable only by their stable per-device id (LEDCube/cube#28).
+    let a: ControllerInfo = serde_json::from_value(json!({
+        "player": 0, "name": "8BitDo SN30 Pro", "vid_pid": "2dc8:9018",
+        "hw_id": "E4:17:D8:25:FB:42", "profile": "recognized", "connected": true
+    }))
+    .expect("decode a");
+    let b: ControllerInfo = serde_json::from_value(json!({
+        "player": 1, "name": "8BitDo SN30 Pro", "vid_pid": "2dc8:9018",
+        "hw_id": "E4:17:D8:25:FB:99", "profile": "recognized", "connected": true
+    }))
+    .expect("decode b");
+    assert_eq!(a.name, b.name);
+    assert_eq!(a.vid_pid, b.vid_pid);
+    assert_ne!(
+        a.hw_id, b.hw_id,
+        "same model → the hw_id is the only discriminator"
+    );
 }
 
 #[test]
