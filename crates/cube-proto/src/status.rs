@@ -107,6 +107,12 @@ pub struct DisplayStatus {
     pub frames_displayed: u64,
     pub frames_dropped: FramesDropped,
     pub spi_errors: u64,
+    /// Cumulative count of DRM-thread output failures — a `device.commit()` or
+    /// `frame_events` send that returned an error (SDS v7 §11.1; R3.5). `0` in
+    /// steady state; a non-zero value flags a failing display pipeline. Defaults
+    /// to `0` for backward compatibility with pre-R3.5 status payloads.
+    #[serde(default)]
+    pub commit_errors: u64,
     /// What caused the display to be blanked (SDS v6 §5.12, delta §6/§8):
     /// `none` (active), `idle` (idle timer), or `command` (`power.blank`).
     /// Defaults to `none` for backward compatibility with v5 status payloads.

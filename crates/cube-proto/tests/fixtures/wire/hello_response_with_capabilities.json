@@ -1,0 +1,19 @@
+{
+  "id": 1,
+  "ok": true,
+  "result": {
+    "capabilities": {
+      "overlay": true,
+      "transition_kinds": [
+        "cut",
+        "crossfade",
+        "dissolve",
+        "dip_to_black",
+        "particle_dissolve",
+        "push"
+      ]
+    },
+    "protocol_version": "1.2",
+    "surface": "v6"
+  }
+}

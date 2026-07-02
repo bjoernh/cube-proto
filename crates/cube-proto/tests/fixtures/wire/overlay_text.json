@@ -1,0 +1,8 @@
+{
+  "cmd": "overlay.text",
+  "color": "#FFFFFF",
+  "duration_ms": 3000,
+  "id": 50,
+  "text": "Hello TEST",
+  "z": 1
+}

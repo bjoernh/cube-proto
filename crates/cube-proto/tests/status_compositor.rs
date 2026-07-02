@@ -43,6 +43,7 @@ fn sample_report() -> StatusReport {
             frames_displayed: 0,
             frames_dropped: FramesDropped::default(),
             spi_errors: 0,
+            commit_errors: 0,
             blank_source: "none".to_owned(),
         },
         per_app: BTreeMap::new(),

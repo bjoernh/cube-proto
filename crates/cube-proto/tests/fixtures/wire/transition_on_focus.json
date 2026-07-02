@@ -1,0 +1,9 @@
+{
+  "app": "snake",
+  "cmd": "focus",
+  "id": 30,
+  "transition": {
+    "duration_ms": 250,
+    "kind": "crossfade"
+  }
+}

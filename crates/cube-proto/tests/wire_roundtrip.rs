@@ -107,6 +107,7 @@ fn hello_result_without_surface_omits_field_sds_5_3_v6_delta_7() {
     let r = HelloResult {
         protocol_version: "1.1".to_string(),
         surface: None,
+        capabilities: None,
     };
     let v = serde_json::to_value(&r).unwrap();
     assert_eq!(v, json!({"protocol_version": "1.1"}));

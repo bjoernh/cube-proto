@@ -1,0 +1,5 @@
+{
+  "event": "overlay.dismissed",
+  "layer": 7,
+  "reason": "released"
+}

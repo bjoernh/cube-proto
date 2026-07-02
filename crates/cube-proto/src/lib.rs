@@ -28,7 +28,9 @@ pub use event::{
 };
 pub use handshake_datagram::{HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC};
 pub use input::{BindingScope, ControllerInfo, ControllerProfile};
-pub use request::{HelloResult, OverlayInputMode, Request, TransitionKind, TransitionSpec};
+pub use request::{
+    Capabilities, HelloResult, OverlayInputMode, Request, TransitionKind, TransitionSpec,
+};
 pub use response::{Response, ResponseBody};
 pub use status::{
     CompositorStatus, CubedStatus, DisplayStatus, FramesDropped, OverlayStatus, PauseCauses,

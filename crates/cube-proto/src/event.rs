@@ -199,11 +199,21 @@ pub enum Event {
     #[serde(rename = "present.displayed")]
     PresentDisplayed { seq: u64, buffer_id: u32 },
 
+    /// A previously-presented buffer is free for the client to reuse
+    /// (SDS §5.1, §5.12). `layer` disambiguates *which* layer of a multi-layer
+    /// connection the buffer belonged to (SDS v7 §5.13, D7): absent (or `0`) is
+    /// the connection's **base** layer — the pre-compositor shape — while an
+    /// overlay-buffer release carries the `layer` id returned by
+    /// `overlay.acquire`. Additive and `skip_serializing_if`, so a base release
+    /// keeps the exact `{buffer_id, seq, reason}` wire shape and old clients that
+    /// never present overlays simply never see (and can safely ignore) the field.
     #[serde(rename = "buffer.release")]
     BufferRelease {
         buffer_id: u32,
         seq: u64,
         reason: ReleaseReason,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        layer: Option<u32>,
     },
 
     // ── Parameter events ─────────────────────────────────────────────────────
