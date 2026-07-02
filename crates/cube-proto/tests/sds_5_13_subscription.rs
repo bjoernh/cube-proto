@@ -58,12 +58,26 @@ fn subscribe_full_form_roundtrips_sds_5_13() {
     });
     let req = roundtrip_request(j);
     match req {
-        Request::Subscribe { id, app, events, interval_ms, snapshot, max_events, timeout_ms } => {
+        Request::Subscribe {
+            id,
+            app,
+            events,
+            interval_ms,
+            snapshot,
+            max_events,
+            timeout_ms,
+        } => {
             assert_eq!(id, 17);
             assert_eq!(app, "*");
             assert_eq!(
                 events.as_deref(),
-                Some(&["lifecycle".to_owned(), "telemetry".to_owned(), "brightness".to_owned()][..])
+                Some(
+                    &[
+                        "lifecycle".to_owned(),
+                        "telemetry".to_owned(),
+                        "brightness".to_owned()
+                    ][..]
+                )
             );
             assert_eq!(interval_ms, Some(1000));
             assert_eq!(snapshot, Some(true));
@@ -87,7 +101,13 @@ fn subscribe_bounded_form_roundtrips_sds_5_13() {
     });
     let req = roundtrip_request(j);
     match req {
-        Request::Subscribe { max_events, timeout_ms, snapshot, interval_ms, .. } => {
+        Request::Subscribe {
+            max_events,
+            timeout_ms,
+            snapshot,
+            interval_ms,
+            ..
+        } => {
             assert_eq!(max_events, Some(16));
             assert_eq!(timeout_ms, Some(3000));
             assert_eq!(snapshot, None);
@@ -108,7 +128,15 @@ fn subscribe_legacy_param_form_roundtrips_unchanged_sds_5_13() {
     });
     let req = roundtrip_request(j);
     match req {
-        Request::Subscribe { id, app, events, interval_ms, snapshot, max_events, timeout_ms } => {
+        Request::Subscribe {
+            id,
+            app,
+            events,
+            interval_ms,
+            snapshot,
+            max_events,
+            timeout_ms,
+        } => {
             assert_eq!(id, 4);
             assert_eq!(app, "snake");
             assert_eq!(events, None);
@@ -146,7 +174,12 @@ fn unsubscribe_by_sub_id_roundtrips_sds_5_13() {
     let j = json!({ "id": 18, "cmd": "unsubscribe", "sub_id": "s-3" });
     let req = roundtrip_request(j);
     match req {
-        Request::Unsubscribe { id, sub_id, app, all } => {
+        Request::Unsubscribe {
+            id,
+            sub_id,
+            app,
+            all,
+        } => {
             assert_eq!(id, 18);
             assert_eq!(sub_id.as_deref(), Some("s-3"));
             assert_eq!(app, None);
@@ -161,7 +194,9 @@ fn unsubscribe_all_roundtrips_sds_5_13() {
     let j = json!({ "id": 18, "cmd": "unsubscribe", "all": true });
     let req = roundtrip_request(j);
     match req {
-        Request::Unsubscribe { sub_id, app, all, .. } => {
+        Request::Unsubscribe {
+            sub_id, app, all, ..
+        } => {
             assert_eq!(sub_id, None);
             assert_eq!(app, None);
             assert!(all);
@@ -176,7 +211,9 @@ fn unsubscribe_legacy_app_form_roundtrips_unchanged_sds_5_13() {
     let j = json!({ "id": 9, "cmd": "unsubscribe", "app": "snake" });
     let req = roundtrip_request(j);
     match req {
-        Request::Unsubscribe { app, sub_id, all, .. } => {
+        Request::Unsubscribe {
+            app, sub_id, all, ..
+        } => {
             assert_eq!(app.as_deref(), Some("snake"));
             assert_eq!(sub_id, None);
             assert!(!all);
@@ -208,7 +245,13 @@ fn app_state_event_with_cause_roundtrips_sds_5_13() {
     });
     let ev = roundtrip_event(j);
     match ev {
-        Event::AppState { app, from, to, cause, event_seq } => {
+        Event::AppState {
+            app,
+            from,
+            to,
+            cause,
+            event_seq,
+        } => {
             assert_eq!(app, "snake");
             assert_eq!(from, "focused");
             assert_eq!(to, "paused");
@@ -249,7 +292,11 @@ fn focus_changed_event_roundtrips_sds_5_13() {
     });
     let ev = roundtrip_event(j);
     match ev {
-        Event::FocusChanged { focused_app, previous, event_seq } => {
+        Event::FocusChanged {
+            focused_app,
+            previous,
+            event_seq,
+        } => {
             assert_eq!(focused_app.as_deref(), Some("snake"));
             assert_eq!(previous.as_deref(), Some("launcher"));
             assert_eq!(event_seq, Some(5016));
@@ -269,7 +316,11 @@ fn focus_changed_event_omits_absent_apps_sds_5_13() {
     });
     let ev = roundtrip_event(j);
     match ev {
-        Event::FocusChanged { focused_app, previous, .. } => {
+        Event::FocusChanged {
+            focused_app,
+            previous,
+            ..
+        } => {
             assert_eq!(focused_app.as_deref(), Some("launcher"));
             assert_eq!(previous, None);
         }
@@ -317,7 +368,11 @@ fn app_stopped_with_reason_and_event_seq_roundtrips_sds_5_13() {
     });
     let ev = roundtrip_event(j);
     match ev {
-        Event::AppStopped { app, reason, event_seq } => {
+        Event::AppStopped {
+            app,
+            reason,
+            event_seq,
+        } => {
             assert_eq!(app, "snake");
             assert_eq!(reason.as_deref(), Some("evicted"));
             assert_eq!(event_seq, Some(5014));
@@ -366,7 +421,13 @@ fn app_stats_event_roundtrips_sds_5_13() {
     });
     let ev = roundtrip_event(j);
     match ev {
-        Event::AppStats { app, fps, drops, drops_delta, frame_seq } => {
+        Event::AppStats {
+            app,
+            fps,
+            drops,
+            drops_delta,
+            frame_seq,
+        } => {
             assert_eq!(app, "snake");
             assert!((fps - 59.5).abs() < f32::EPSILON);
             assert_eq!(drops, 12);
@@ -543,8 +604,14 @@ fn subscribe_result_with_full_snapshot_roundtrips_sds_5_13() {
     let telemetry = snap.telemetry.as_ref().expect("telemetry section");
     assert_eq!(telemetry.app, "snake");
     assert_eq!(telemetry.drops, 12);
-    assert_eq!(snap.brightness.as_ref().expect("brightness section").value, 200);
-    assert_eq!(snap.power.as_ref().expect("power section").state, PowerState::Active);
+    assert_eq!(
+        snap.brightness.as_ref().expect("brightness section").value,
+        200
+    );
+    assert_eq!(
+        snap.power.as_ref().expect("power section").state,
+        PowerState::Active
+    );
     let back = serde_json::to_value(&r).expect("SubscribeResult encode");
     assert_eq!(back, j);
 }
@@ -557,12 +624,17 @@ fn snapshot_omits_unsubscribed_sections_sds_5_13() {
         lifecycle: None,
         telemetry: None,
         brightness: Some(cube_proto::BrightnessSnapshot { value: 128 }),
-        power: Some(cube_proto::PowerSnapshot { state: PowerState::Blanked }),
+        power: Some(cube_proto::PowerSnapshot {
+            state: PowerState::Blanked,
+        }),
         input_bindings: None,
         input_capture: None,
     };
     let v = serde_json::to_value(&snap).expect("Snapshot encode");
-    assert_eq!(v, json!({ "brightness": { "value": 128 }, "power": { "state": "blanked" } }));
+    assert_eq!(
+        v,
+        json!({ "brightness": { "value": 128 }, "power": { "state": "blanked" } })
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -582,7 +654,8 @@ fn subscribe_result_with_input_bindings_snapshot_roundtrips() {
                 "controllers": [
                     {
                         "player": 0, "name": "8BitDo SN30 Pro",
-                        "vid_pid": "2dc8:9018", "profile": "recognized", "connected": true
+                        "vid_pid": "2dc8:9018", "hw_id": "E4:17:D8:25:FB:42",
+                        "profile": "recognized", "connected": true
                     },
                     {
                         "player": 1, "name": "Generic Gamepad",
@@ -593,10 +666,22 @@ fn subscribe_result_with_input_bindings_snapshot_roundtrips() {
         }
     });
     let r: SubscribeResult = serde_json::from_value(j.clone()).expect("SubscribeResult decode");
-    let bindings = r.snapshot.as_ref().expect("snapshot").input_bindings.as_ref().expect("section");
+    let bindings = r
+        .snapshot
+        .as_ref()
+        .expect("snapshot")
+        .input_bindings
+        .as_ref()
+        .expect("section");
     assert_eq!(bindings.controllers.len(), 2);
     assert_eq!(bindings.controllers[0].player, 0);
+    // Stable per-device id threads through the snapshot section (LEDCube/cube#28).
+    assert_eq!(
+        bindings.controllers[0].hw_id.as_deref(),
+        Some("E4:17:D8:25:FB:42")
+    );
     assert_eq!(bindings.controllers[1].vid_pid, None);
+    assert_eq!(bindings.controllers[1].hw_id, None);
     assert_eq!(serde_json::to_value(&r).expect("encode"), j);
 }
 
@@ -616,7 +701,13 @@ fn subscribe_result_with_input_capture_snapshot_roundtrips() {
         }
     });
     let r: SubscribeResult = serde_json::from_value(j.clone()).expect("SubscribeResult decode");
-    let capture = r.snapshot.as_ref().expect("snapshot").input_capture.as_ref().expect("section");
+    let capture = r
+        .snapshot
+        .as_ref()
+        .expect("snapshot")
+        .input_capture
+        .as_ref()
+        .expect("section");
     assert_eq!(capture.held.len(), 2);
     assert_eq!(capture.held[0].button, "A");
     assert_eq!(capture.held[1].player, 1);
@@ -635,7 +726,9 @@ fn subscribe_ok_response_with_result_roundtrips_sds_5_13() {
     let back = serde_json::to_value(&resp).expect("Response encode");
     assert_eq!(back, j);
     match resp.body {
-        ResponseBody::Result { result: Some(result) } => {
+        ResponseBody::Result {
+            result: Some(result),
+        } => {
             let r: SubscribeResult = serde_json::from_value(result).expect("SubscribeResult");
             assert_eq!(r.sub_id, "s-1");
             assert_eq!(r.event_seq, 0);
