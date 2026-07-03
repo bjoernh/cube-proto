@@ -145,6 +145,40 @@ fn fixtures() -> Vec<Fixture> {
     ]
 }
 
+/// A fixture whose committed bytes intentionally do NOT re-encode to
+/// themselves: the wire carries a token this build does not recognize, which the
+/// typed model normalizes to a forward-compat catch-all. The file on disk holds
+/// the *foreign* token a newer daemon actually emits; the consuming SDKs
+/// (libcube R5, cubekit R6) mirror this file verbatim and must likewise decode
+/// it to their own `Unknown`. See issue LEDCube/cube#33.
+struct DecodeFixture {
+    /// File stem under `tests/fixtures/wire/` (no extension).
+    name: &'static str,
+    kind: Kind,
+    /// Bytes as they appear on the wire / in the committed file.
+    on_wire: Value,
+    /// What the typed model re-encodes them to (the normalized catch-all form).
+    normalized: Value,
+}
+
+/// Forward-compat fixtures: an unknown wire token that must decode (never
+/// hard-fail) and normalize to a catch-all variant.
+fn decode_fixtures() -> Vec<DecodeFixture> {
+    vec![
+        // ── overlay.dismissed with a reason this build does not know ─────────
+        // A future `cubed` reason token (here `evicted`) must decode to
+        // `OverlayDismissReason::Unknown` (`#[serde(other)]`), which re-encodes
+        // to `"unknown"`. Proves an added reason is a non-breaking, always
+        // decodable change and both SDKs converge on the same Unknown.
+        DecodeFixture {
+            name: "overlay_dismissed_unknown_reason",
+            kind: Kind::Event,
+            on_wire: json!({"event": "overlay.dismissed", "layer": 7, "reason": "evicted"}),
+            normalized: json!({"event": "overlay.dismissed", "layer": 7, "reason": "unknown"}),
+        },
+    ]
+}
+
 /// Absolute path to `tests/fixtures/wire/` (created on demand).
 fn wire_dir() -> PathBuf {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -227,6 +261,73 @@ fn wire_fixtures_write_and_roundtrip() {
             kind: f.kind,
             json: on_disk,
         });
+    }
+}
+
+/// Decode a `DecodeFixture`'s wire bytes through the typed model and re-encode,
+/// asserting the result equals the *normalized* form (not the input). This is
+/// the forward-compat contract: an unknown token is accepted and folded to the
+/// catch-all variant.
+fn assert_normalizes(f: &DecodeFixture, on_wire: &Value) {
+    let back = match f.kind {
+        Kind::Request => {
+            let v: Request = serde_json::from_value(on_wire.clone())
+                .unwrap_or_else(|e| panic!("{}: Request decode: {e}", f.name));
+            serde_json::to_value(&v).unwrap()
+        }
+        Kind::Response => {
+            let v: Response = serde_json::from_value(on_wire.clone())
+                .unwrap_or_else(|e| panic!("{}: Response decode: {e}", f.name));
+            serde_json::to_value(&v).unwrap()
+        }
+        Kind::Event => {
+            let v: Event = serde_json::from_value(on_wire.clone())
+                .unwrap_or_else(|e| panic!("{}: Event decode: {e}", f.name));
+            serde_json::to_value(&v).unwrap()
+        }
+    };
+    assert_eq!(back, f.normalized, "{}: did not normalize as expected", f.name);
+}
+
+/// Prove every committed forward-compat fixture (a foreign/unknown wire token)
+/// decodes through the typed model rather than hard-failing, and folds to the
+/// catch-all variant. Same `UPDATE_FIXTURES` gating as the byte-for-byte set so
+/// the default run stays read-only. The committed files hold the *foreign*
+/// token verbatim — the cross-SDK contract artifact both SDKs mirror.
+#[test]
+fn wire_forward_compat_fixtures_write_and_roundtrip() {
+    let dir = wire_dir();
+    let update = std::env::var_os("UPDATE_FIXTURES").is_some_and(|v| !v.is_empty());
+
+    if update {
+        std::fs::create_dir_all(&dir).expect("create fixtures/wire dir");
+    }
+    for f in decode_fixtures() {
+        // The canonical table must be self-consistent before it is trusted.
+        assert_normalizes(&f, &f.on_wire);
+        if update {
+            let mut path = dir.clone();
+            path.push(format!("{}.json", f.name));
+            let pretty = serde_json::to_string_pretty(&f.on_wire).expect("pretty");
+            std::fs::write(&path, format!("{pretty}\n")).expect("write fixture");
+        }
+    }
+
+    // Read back FROM DISK — the committed foreign token is the authoritative
+    // contract the SDKs mirror; it must still decode and normalize.
+    for f in decode_fixtures() {
+        let mut path = dir.clone();
+        path.push(format!("{}.json", f.name));
+        let on_disk: Value = serde_json::from_str(
+            &std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", f.name)),
+        )
+        .unwrap_or_else(|e| panic!("parse {}: {e}", f.name));
+        assert_eq!(
+            on_disk, f.on_wire,
+            "{}: file on disk drifted from the canonical table",
+            f.name
+        );
+        assert_normalizes(&f, &on_disk);
     }
 }
 
