@@ -10,8 +10,8 @@ mod schema;
 mod system;
 
 pub use manifest::{
-    AppSection, Manifest, ManifestCategory, OverlaySection, PowerSection, RequiresSection,
-    load_manifest, manifest_to_toml,
+    Accent, AppSection, Manifest, ManifestCategory, OverlaySection, Players, PowerSection,
+    RequiresSection, load_manifest, manifest_to_toml,
 };
 pub use schema::{
     GamepadSchema, ParamDef, ParamType, Schema, SchemaBuilder, UiMeta, load_schema, schema_to_toml,

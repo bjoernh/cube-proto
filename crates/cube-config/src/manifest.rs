@@ -8,7 +8,7 @@ use std::path::Path;
 use regex::Regex;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Deserializer, Serialize};
-use toml::value::{Table, Value};
+use toml_edit::{Array, DocumentMut, InlineTable, Item, Table, value};
 
 use crate::system::ConfigError;
 
@@ -26,6 +26,45 @@ pub enum ManifestCategory {
     Demo,
     System,
     Wellness,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Accent palette (SDS v7.1 §A2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Closed, core-owned canonical accent palette (SDS v7.1 §A2).
+///
+/// These are palette-neutral colour tokens the core owns, deliberately
+/// decoupled from the companion's internal theme naming. The set is closed:
+/// an unknown token fails deserialization so `cubectl doctor` surfaces it
+/// (SDS §11.1). New tokens may be appended without a schema version bump; the
+/// companion degrades any token it does not theme to a fallback accent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Accent {
+    Red,
+    Amber,
+    Yellow,
+    Green,
+    Cyan,
+    Blue,
+    Violet,
+    Magenta,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Player count (SDS v7.1 §A1/§A4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Structured player count for an app (SDS v7.1 §A1).
+///
+/// On the wire and in TOML this is an inline table `{ min = N, max = M }`.
+/// The loader validates `min >= 1` and `min <= max`; it is carried structured
+/// all the way to the `list` wire (§A4), never a pre-formatted display string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Players {
+    pub min: u32,
+    pub max: u32,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -49,6 +88,16 @@ pub struct AppSection {
     pub version: Version,
     pub category: ManifestCategory,
     pub icon: Option<String>,
+    /// Optional accent token from the closed core palette (SDS v7.1 §A1/§A2).
+    pub accent: Option<Accent>,
+    /// Optional short blurb (companion Arcade sub-line) (SDS v7.1 §A1).
+    pub description: Option<String>,
+    /// Optional preview image/gif filename, resolved flat in the app's install
+    /// directory alongside `manifest.toml` (SDS v7.1 §A1/§A3).
+    pub preview: Option<String>,
+    /// Optional structured player count; validated `min >= 1, min <= max`
+    /// (SDS v7.1 §A1). Omitted for non-player apps (visualizers/utilities).
+    pub players: Option<Players>,
 }
 
 /// `[requires]` section of a `manifest.toml`.
@@ -108,7 +157,21 @@ struct RawApp {
     display_name: String,
     version: String,
     category: ManifestCategory,
+    #[serde(default)]
     icon: Option<String>,
+    /// SDS v7.1 §A1/§A2: optional; unknown token fails deserialization (closed
+    /// set), surfaced as a `ConfigError::Parse` by the loader.
+    #[serde(default)]
+    accent: Option<Accent>,
+    /// SDS v7.1 §A1: optional short blurb.
+    #[serde(default)]
+    description: Option<String>,
+    /// SDS v7.1 §A1/§A3: optional preview filename.
+    #[serde(default)]
+    preview: Option<String>,
+    /// SDS v7.1 §A1: optional inline `{ min, max }`; validated by the loader.
+    #[serde(default)]
+    players: Option<Players>,
 }
 
 #[derive(Deserialize)]
@@ -187,77 +250,99 @@ pub(crate) fn validate_app_name(name: &str) -> Result<(), String> {
 // cubekit-spec §9.4)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Serialize a [`Manifest`] to `manifest.toml` text (SDS §7.2).
+/// Serialize a [`Manifest`] to `manifest.toml` text (SDS §7.2, §7.1 §A1).
 ///
-/// The output is deterministic and key-sorted (a `toml::value::Table` is a
-/// sorted map) and is accepted and round-tripped by [`load_manifest`]. This is
-/// the emission half of "agree by construction" (cubekit-spec §9.4): the same
-/// crate that loads `manifest.toml` also emits it, so emitter and loader cannot
-/// drift. `Option` fields (`icon`, `requires`, `power`, and the SDK-compat
-/// `libcube`/`cubekit` fields) are omitted entirely when `None`.
+/// The output is deterministic and key-sorted (each table's values are sorted
+/// by key) and is accepted and round-tripped by [`load_manifest`]. This is the
+/// emission half of "agree by construction" (cubekit-spec §9.4): the same crate
+/// that loads `manifest.toml` also emits it, so emitter and loader cannot drift.
+/// `Option` fields (`icon`, the four §A1 metadata fields `accent`/`description`/
+/// `preview`/`players`, `requires`, `power`, and the SDK-compat `libcube`/
+/// `cubekit` fields) are omitted entirely when `None`. `players` is emitted as
+/// an inline table `{ min = N, max = M }` (SDS v7.1 §A1).
 #[must_use]
 pub fn manifest_to_toml(m: &Manifest) -> String {
-    let mut root = Table::new();
+    let mut doc = DocumentMut::new();
 
     // [app]
     let mut app = Table::new();
-    app.insert("name".into(), Value::String(m.app.name.clone()));
-    app.insert(
-        "display_name".into(),
-        Value::String(m.app.display_name.clone()),
-    );
-    app.insert("version".into(), Value::String(m.app.version.to_string()));
+    app.insert("name", value(m.app.name.clone()));
+    app.insert("display_name", value(m.app.display_name.clone()));
+    app.insert("version", value(m.app.version.to_string()));
     // `ManifestCategory` serializes (rename_all = "lowercase") to its token.
-    app.insert(
-        "category".into(),
-        Value::try_from(m.app.category).expect("ManifestCategory serializes to a TOML string"),
-    );
+    app.insert("category", value(lowercase_token(m.app.category)));
     if let Some(icon) = &m.app.icon {
-        app.insert("icon".into(), Value::String(icon.clone()));
+        app.insert("icon", value(icon.clone()));
     }
-    root.insert("app".into(), Value::Table(app));
+    // §A1 metadata fields — emitted only when `Some`.
+    if let Some(accent) = &m.app.accent {
+        app.insert("accent", value(lowercase_token(*accent)));
+    }
+    if let Some(description) = &m.app.description {
+        app.insert("description", value(description.clone()));
+    }
+    if let Some(preview) = &m.app.preview {
+        app.insert("preview", value(preview.clone()));
+    }
+    if let Some(players) = &m.app.players {
+        let mut inline = InlineTable::new();
+        inline.insert("min", i64::from(players.min).into());
+        inline.insert("max", i64::from(players.max).into());
+        app.insert("players", value(inline));
+    }
+    app.sort_values();
+    doc.insert("app", Item::Table(app));
 
     // [requires] — emitted only when present; libcube/cubekit each only if Some.
     if let Some(req) = &m.requires {
         let mut requires = Table::new();
         if let Some(libcube) = &req.libcube {
-            requires.insert("libcube".into(), version_req_to_value(libcube));
+            requires.insert("libcube", value(libcube.to_string()));
         }
         if let Some(cubekit) = &req.cubekit {
-            requires.insert("cubekit".into(), version_req_to_value(cubekit));
+            requires.insert("cubekit", value(cubekit.to_string()));
         }
-        requires.insert(
-            "inputs".into(),
-            Value::Array(req.inputs.iter().map(|s| Value::String(s.clone())).collect()),
-        );
-        requires.insert(
-            "sensors".into(),
-            Value::Array(req.sensors.iter().map(|s| Value::String(s.clone())).collect()),
-        );
-        requires.insert("network".into(), Value::Boolean(req.network));
-        root.insert("requires".into(), Value::Table(requires));
+        let mut inputs = Array::new();
+        for s in &req.inputs {
+            inputs.push(s.as_str());
+        }
+        requires.insert("inputs", value(inputs));
+        let mut sensors = Array::new();
+        for s in &req.sensors {
+            sensors.push(s.as_str());
+        }
+        requires.insert("sensors", value(sensors));
+        requires.insert("network", value(req.network));
+        requires.sort_values();
+        doc.insert("requires", Item::Table(requires));
     }
 
     // [power]
     if let Some(power) = &m.power {
         let mut power_tbl = Table::new();
-        power_tbl.insert("idle_blank".into(), Value::Boolean(power.idle_blank));
-        root.insert("power".into(), Value::Table(power_tbl));
+        power_tbl.insert("idle_blank", value(power.idle_blank));
+        doc.insert("power", Item::Table(power_tbl));
     }
 
     // [overlay]
     if let Some(overlay) = &m.overlay {
         let mut overlay_tbl = Table::new();
-        overlay_tbl.insert("provides".into(), Value::Boolean(overlay.provides));
-        root.insert("overlay".into(), Value::Table(overlay_tbl));
+        overlay_tbl.insert("provides", value(overlay.provides));
+        doc.insert("overlay", Item::Table(overlay_tbl));
     }
 
-    toml::to_string_pretty(&Value::Table(root)).expect("emitted manifest is a valid toml::Table")
+    doc.as_table_mut().sort_values();
+    doc.to_string()
 }
 
-/// Serialize a [`VersionReq`] to its canonical TOML string (e.g. `"^0.1"`).
-fn version_req_to_value(req: &VersionReq) -> Value {
-    Value::try_from(req).expect("VersionReq serializes to a TOML string")
+/// Lowercase wire token for a `rename_all = "lowercase"` serde enum
+/// (`ManifestCategory`, `Accent`), via the serde impl so the emitter and the
+/// closed loader enum cannot spell a token differently.
+fn lowercase_token<T: Serialize>(v: T) -> String {
+    match toml::Value::try_from(v) {
+        Ok(toml::Value::String(s)) => s,
+        other => unreachable!("lowercase enum must serialize to a TOML string, got {other:?}"),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -293,12 +378,34 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
         ))
     })?;
 
+    // SDS v7.1 §A1: validate `players` when present (min >= 1, min <= max).
+    // (An invalid `accent` token is already rejected earlier by the closed
+    // enum during `toml::from_str`, surfaced as `ConfigError::Parse`.)
+    if let Some(players) = raw.app.players {
+        if players.min < 1 {
+            return Err(parse_err(format!(
+                "[app] players: min must be >= 1, got min = {}",
+                players.min
+            )));
+        }
+        if players.min > players.max {
+            return Err(parse_err(format!(
+                "[app] players: min must be <= max, got min = {}, max = {}",
+                players.min, players.max
+            )));
+        }
+    }
+
     let app = AppSection {
         name: raw.app.name,
         display_name: raw.app.display_name,
         version,
         category: raw.app.category,
         icon: raw.app.icon,
+        accent: raw.app.accent,
+        description: raw.app.description,
+        preview: raw.app.preview,
+        players: raw.app.players,
     };
 
     let requires = raw
@@ -341,4 +448,3 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
         overlay,
     })
 }
-
