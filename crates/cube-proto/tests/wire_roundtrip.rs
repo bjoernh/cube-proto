@@ -1435,6 +1435,56 @@ fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
 }
 
 #[test]
+fn overlay_dismiss_reason_unknown_is_forward_compatible() {
+    use cube_proto::{Event, OverlayDismissReason};
+
+    // A reason token this build does not recognize (a future `cubed` reason, or
+    // an SDK drift) must NOT hard-fail strict decode — the `#[serde(other)]`
+    // catch-all maps it to `Unknown` (issue LEDCube/cube#33). This is the shared
+    // vocabulary both SDKs consume, so an unknown reason is handled identically
+    // to any known one: stop presenting into the layer.
+    let ev: Event = serde_json::from_value(
+        json!({"event": "overlay.dismissed", "layer": 7, "reason": "evicted"}),
+    )
+    .expect("an unknown dismissal reason must decode, not error");
+    match ev {
+        Event::OverlayDismissed { layer, reason } => {
+            assert_eq!(layer, 7);
+            assert_eq!(reason, OverlayDismissReason::Unknown);
+        }
+        other => panic!("expected OverlayDismissed, got {other:?}"),
+    }
+
+    // `Unknown` is a first-class wire citizen: it serializes to `"unknown"` and
+    // round-trips through that token byte-for-byte.
+    roundtrip_event(json!({"event": "overlay.dismissed", "layer": 7, "reason": "unknown"}));
+    let back: Event = serde_json::from_value(
+        json!({"event": "overlay.dismissed", "layer": 1, "reason": "unknown"}),
+    )
+    .expect("the `unknown` token itself decodes");
+    assert!(matches!(
+        back,
+        Event::OverlayDismissed { reason: OverlayDismissReason::Unknown, .. }
+    ));
+
+    // The three known reasons are unaffected — still decode to their variants.
+    for (token, want) in [
+        ("released", OverlayDismissReason::Released),
+        ("focus_lost", OverlayDismissReason::FocusLost),
+        ("blanked", OverlayDismissReason::Blanked),
+    ] {
+        let ev: Event = serde_json::from_value(
+            json!({"event": "overlay.dismissed", "layer": 3, "reason": token}),
+        )
+        .unwrap_or_else(|e| panic!("{token} decode: {e}"));
+        match ev {
+            Event::OverlayDismissed { reason, .. } => assert_eq!(reason, want),
+            other => panic!("expected OverlayDismissed, got {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn present_with_layer_field_roundtrips_sds_5_1() {
     // SDS §6.1: `present` gains an optional `layer` selecting which compositor
     // layer the buffer updates. `layer:7` targets an acquired overlay layer:

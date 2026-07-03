@@ -90,6 +90,14 @@ pub enum OverlayDismissReason {
     FocusLost,
     /// The display blanked.
     Blanked,
+    /// A dismissal reason this build does not recognize — a forward-compat
+    /// catch-all so a future `cubed` reason token (e.g. `evicted`) is always
+    /// decodable rather than a strict-deserialization hard error. Both SDKs map
+    /// an unknown token here (cross-SDK symmetry, issue LEDCube/cube#33); the
+    /// app contract is identical to any other reason: stop presenting into the
+    /// layer. Serializes to `"unknown"`.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Who initiated a parameter change. Stamped onto every `param.changed`
