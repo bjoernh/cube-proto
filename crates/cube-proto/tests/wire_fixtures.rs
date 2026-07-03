@@ -6,9 +6,13 @@
 //! and cubekit consume these same files verbatim (R5/R6/R7), so the daemon and
 //! both SDKs share one source of truth for the exact bytes on the socket.
 //!
-//! Run `cargo test -p cube-proto --test wire_fixtures` to (re)generate the
-//! files — the fixtures are committed, and a drift between the in-code canonical
-//! table and the enum/serde definitions fails the round-trip assertion.
+//! The fixtures are committed. A normal `cargo test -p cube-proto` run only
+//! *verifies* the committed files against the in-code canonical table (a drift
+//! between the two, or between a file and the enum/serde definitions, fails the
+//! round-trip assertion) — it never writes into the source tree, so it works
+//! under a read-only workspace (e.g. CI). To (re)generate the files after
+//! changing the canonical table, run with `UPDATE_FIXTURES=1`:
+//! `UPDATE_FIXTURES=1 cargo test -p cube-proto --test wire_fixtures`.
 
 use std::path::PathBuf;
 
@@ -173,24 +177,34 @@ fn assert_roundtrip(f: &Fixture) {
     assert_eq!(back, f.json, "{}: did not round-trip", f.name);
 }
 
-/// Write every canonical fixture to `tests/fixtures/wire/<name>.json` (the
-/// committed contract artifact), then read each file back and prove it
-/// round-trips through the typed model. Write and read live in one test so the
-/// two never race over the shared files under the parallel test runner; the
-/// committed files ARE regenerated on every run.
+/// Prove every committed fixture in `tests/fixtures/wire/<name>.json` (the
+/// contract artifact) matches the in-code canonical table and round-trips
+/// through the typed model. With `UPDATE_FIXTURES` set, the canonical table is
+/// first (re)written to those files — an opt-in that keeps the default run
+/// (including CI's read-only workspace mount) from ever touching the source
+/// tree. Write and read live in one test so the two never race over the shared
+/// files under the parallel test runner.
 #[test]
 fn wire_fixtures_write_and_roundtrip() {
     let dir = wire_dir();
-    std::fs::create_dir_all(&dir).expect("create fixtures/wire dir");
+    // Only regenerate the committed files when explicitly asked; a normal run
+    // just verifies them (step 2) so it works read-only.
+    let update = std::env::var_os("UPDATE_FIXTURES").is_some_and(|v| !v.is_empty());
 
-    // 1. Write: the canonical table must be self-consistent before it is
-    //    persisted, so a broken shape fails here rather than being written out.
+    // 1. The canonical table must be self-consistent before it is trusted, so a
+    //    broken shape fails here rather than being read/written. When updating,
+    //    persist each fixture to disk.
+    if update {
+        std::fs::create_dir_all(&dir).expect("create fixtures/wire dir");
+    }
     for f in fixtures() {
         assert_roundtrip(&f);
-        let mut path = dir.clone();
-        path.push(format!("{}.json", f.name));
-        let pretty = serde_json::to_string_pretty(&f.json).expect("pretty");
-        std::fs::write(&path, format!("{pretty}\n")).expect("write fixture");
+        if update {
+            let mut path = dir.clone();
+            path.push(format!("{}.json", f.name));
+            let pretty = serde_json::to_string_pretty(&f.json).expect("pretty");
+            std::fs::write(&path, format!("{pretty}\n")).expect("write fixture");
+        }
     }
 
     // 2. Read back FROM DISK: the bytes on disk are the authoritative contract a
