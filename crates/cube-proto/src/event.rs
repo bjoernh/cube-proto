@@ -79,6 +79,27 @@ pub enum FocusLostReason {
     Stopping,
 }
 
+/// Why a client overlay was dismissed (SDS v7 §5.13, §6.1). Delivered as the
+/// `reason` of an [`Event::OverlayDismissed`] event to the overlay's owner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayDismissReason {
+    /// The owner released it (`overlay.release`) or its connection closed.
+    Released,
+    /// Its base app lost focus, taking its over-self overlay with it.
+    FocusLost,
+    /// The display blanked.
+    Blanked,
+    /// A dismissal reason this build does not recognize — a forward-compat
+    /// catch-all so a future `cubed` reason token (e.g. `evicted`) is always
+    /// decodable rather than a strict-deserialization hard error. Both SDKs map
+    /// an unknown token here (cross-SDK symmetry, issue LEDCube/cube#33); the
+    /// app contract is identical to any other reason: stop presenting into the
+    /// layer. Serializes to `"unknown"`.
+    #[serde(other)]
+    Unknown,
+}
+
 /// Who initiated a parameter change. Stamped onto every `param.changed`
 /// and `params.changed` event so subscribers can route differently.
 /// Defaults to [`ChangeSource::Unknown`] for forward-compat — older
@@ -186,11 +207,21 @@ pub enum Event {
     #[serde(rename = "present.displayed")]
     PresentDisplayed { seq: u64, buffer_id: u32 },
 
+    /// A previously-presented buffer is free for the client to reuse
+    /// (SDS §5.1, §5.12). `layer` disambiguates *which* layer of a multi-layer
+    /// connection the buffer belonged to (SDS v7 §5.13, D7): absent (or `0`) is
+    /// the connection's **base** layer — the pre-compositor shape — while an
+    /// overlay-buffer release carries the `layer` id returned by
+    /// `overlay.acquire`. Additive and `skip_serializing_if`, so a base release
+    /// keeps the exact `{buffer_id, seq, reason}` wire shape and old clients that
+    /// never present overlays simply never see (and can safely ignore) the field.
     #[serde(rename = "buffer.release")]
     BufferRelease {
         buffer_id: u32,
         seq: u64,
         reason: ReleaseReason,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        layer: Option<u32>,
     },
 
     // ── Parameter events ─────────────────────────────────────────────────────
@@ -366,6 +397,14 @@ pub enum Event {
 
     #[serde(rename = "config.reloaded")]
     ConfigReloaded,
+
+    /// A client overlay is no longer composed (SDS v7 §5.13, §6.1): the owner
+    /// must stop presenting into `layer`. `reason` is why it was dismissed.
+    #[serde(rename = "overlay.dismissed")]
+    OverlayDismissed {
+        layer: u32,
+        reason: OverlayDismissReason,
+    },
 
     // ── Telemetry / brightness / subscription control (SDS v6 §5.13) ──────────
     /// Per-app frame telemetry sample (SDS v6 §5.13 "Event payloads —

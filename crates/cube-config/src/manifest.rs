@@ -38,6 +38,7 @@ pub struct Manifest {
     pub app: AppSection,
     pub requires: Option<RequiresSection>,
     pub power: Option<PowerSection>,
+    pub overlay: Option<OverlaySection>,
 }
 
 /// `[app]` section of a `manifest.toml`.
@@ -79,6 +80,16 @@ pub struct PowerSection {
     pub idle_blank: bool,
 }
 
+/// `[overlay]` section of a `manifest.toml` (SDS v7 §5.13, §6.1).
+///
+/// Optional; a missing `[overlay]` table is equivalent to `provides = false`.
+#[derive(Debug, Clone)]
+pub struct OverlaySection {
+    /// When `true`, this app may `overlay.acquire` a client overlay over
+    /// **itself** (SDS v7 §5.13). Defaults to `false`.
+    pub provides: bool,
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Raw serde helpers (the TOML contains strings that need custom parsing)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +99,7 @@ struct RawManifest {
     app: RawApp,
     requires: Option<RawRequires>,
     power: Option<RawPower>,
+    overlay: Option<RawOverlay>,
 }
 
 #[derive(Deserialize)]
@@ -119,6 +131,16 @@ struct RawPower {
     /// SDS v6 §7.2: optional, default `false`.
     #[serde(default)]
     idle_blank: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawOverlay {
+    /// SDS v7 §5.13: optional, default `false`. A non-bool value (e.g.
+    /// `provides = "yes"`) is rejected by the loader (the bug `cubectl doctor`
+    /// must surface — SDS §11.1), as is any unknown key under `[overlay]`.
+    #[serde(default)]
+    provides: bool,
 }
 
 fn de_opt_version_req<'de, D>(d: D) -> Result<Option<VersionReq>, D::Error>
@@ -223,6 +245,13 @@ pub fn manifest_to_toml(m: &Manifest) -> String {
         root.insert("power".into(), Value::Table(power_tbl));
     }
 
+    // [overlay]
+    if let Some(overlay) = &m.overlay {
+        let mut overlay_tbl = Table::new();
+        overlay_tbl.insert("provides".into(), Value::Boolean(overlay.provides));
+        root.insert("overlay".into(), Value::Table(overlay_tbl));
+    }
+
     toml::to_string_pretty(&Value::Table(root)).expect("emitted manifest is a valid toml::Table")
 }
 
@@ -301,10 +330,15 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
         idle_blank: p.idle_blank,
     });
 
+    let overlay = raw.overlay.map(|o| OverlaySection {
+        provides: o.provides,
+    });
+
     Ok(Manifest {
         app,
         requires,
         power,
+        overlay,
     })
 }
 

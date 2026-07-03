@@ -107,6 +107,7 @@ fn hello_result_without_surface_omits_field_sds_5_3_v6_delta_7() {
     let r = HelloResult {
         protocol_version: "1.1".to_string(),
         surface: None,
+        capabilities: None,
     };
     let v = serde_json::to_value(&r).unwrap();
     assert_eq!(v, json!({"protocol_version": "1.1"}));
@@ -416,6 +417,165 @@ fn power_blank_request_roundtrips_sds_5_12() {
 fn power_wake_request_roundtrips_sds_5_12() {
     let j = json!({"id": 51, "cmd": "power.wake"});
     roundtrip_request(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transitions on launch / focus  (SDS v7 §5.13, §6.1)
+//
+// W1 adds an OPTIONAL `transition: { kind: "cut"|"crossfade", duration_ms?: u32 }`
+// field to `launch` and `focus`. These pin the exact wire shapes from SDS §6.1:
+//
+//   {"id":30,"cmd":"focus", "app":"snake",     "transition":{"kind":"crossfade","duration_ms":250}}
+//   {"id":31,"cmd":"launch","app":"pixelflow", "transition":{"kind":"cut"}}
+//
+// RED expectation: `Request::{Launch,Focus}` carry no `transition` field yet, and
+// the enum is `deny_unknown_fields`, so decoding either literal fails today. GREEN
+// adds the optional field (skip_serializing_if = none, so the existing
+// `launch_request_roundtrips_sds_5_3` / `focus_request_roundtrips_sds_5_3` — which
+// omit `transition` — keep round-tripping byte-for-byte).
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn transition_field_roundtrips_on_launch_sds_6_1() {
+    // `cut` is the hard-cut opt-out; `duration_ms` is omitted (optional).
+    let j = json!({
+        "id": 31,
+        "cmd": "launch",
+        "app": "pixelflow",
+        "transition": {"kind": "cut"}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_field_roundtrips_on_focus_sds_6_1() {
+    // `crossfade` with an explicit duration.
+    let j = json!({
+        "id": 30,
+        "cmd": "focus",
+        "app": "snake",
+        "transition": {"kind": "crossfade", "duration_ms": 250}
+    });
+    roundtrip_request(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W5 — four NEW transition kinds (SDS v7 §5.13; plan "Add four compositor
+// transition effects"). The wire `TransitionKind` reserves room for these
+// ("`wipe` / `dissolve` / `push` are reserved … addable without a protocol
+// change", request.rs:46). RED: until GREEN adds the variants the snake_case
+// tokens fail to decode AT RUNTIME (unknown enum variant), which is the RED
+// signal for this crate. Tokens: `dissolve`, `dip_to_black`, `particle_dissolve`,
+// `push`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn transition_dissolve_roundtrips_sds_5_13() {
+    let j = json!({"id": 60, "cmd": "focus", "app": "snake", "transition": {"kind": "dissolve"}});
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_dip_to_black_roundtrips_sds_5_13() {
+    let j = json!({
+        "id": 61,
+        "cmd": "launch",
+        "app": "pixelflow",
+        "transition": {"kind": "dip_to_black", "duration_ms": 400}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_particle_dissolve_roundtrips_sds_5_13() {
+    let j = json!({
+        "id": 62,
+        "cmd": "focus",
+        "app": "snake",
+        "transition": {"kind": "particle_dissolve", "duration_ms": 600}
+    });
+    roundtrip_request(j);
+}
+
+#[test]
+fn transition_push_roundtrips_sds_5_13() {
+    let j = json!({"id": 63, "cmd": "focus", "app": "snake", "transition": {"kind": "push"}});
+    roundtrip_request(j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave 2 — ARGB8888 overlay format + admin text overlay  (SDS v7 §5.13, §6.1)
+//
+// W2 adds the overlay pixel format and the two admin-only system-text-overlay
+// commands. RED contract (what GREEN must add to `cube-proto`):
+//
+//   - `Format::Argb8888` with the wire token `"ARGB8888"` (alongside `RGB565`).
+//   - `Request::OverlayText { id, text, duration_ms?, z?, color? }`  (cmd
+//     `"overlay.text"`) — system-rendered text overlay (no buffer/SCM_RIGHTS).
+//   - `Request::OverlayClear { id, z? }`  (cmd `"overlay.clear"`).
+//
+// All three pin the exact JSON from SDS §6.1. They reference the new shapes only
+// through `serde_json` so the binary keeps compiling: until GREEN lands the
+// variants the decode FAILS AT RUNTIME (unknown `Format` variant / unknown
+// `cmd`), which is the RED state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn format_argb8888_roundtrips_sds_5_1() {
+    // SDS v7 §5.13 / §6.1: overlay buffers use ARGB8888 (real alpha for `over`
+    // compositing). The wire token is "ARGB8888". Decode-through `Format` so the
+    // test compiles today and fails at runtime until the variant exists.
+    let v = json!("ARGB8888");
+    let f: Format =
+        serde_json::from_value(v.clone()).expect("Format must decode the \"ARGB8888\" token");
+    let back = serde_json::to_value(&f).expect("encode");
+    assert_eq!(back, v, "ARGB8888 round-trips to the same wire token");
+    // RGB565 still decodes (the new variant is additive, not a replacement).
+    let r: Format = serde_json::from_value(json!("RGB565")).expect("RGB565 still decodes");
+    assert_ne!(
+        serde_json::to_value(&r).unwrap(),
+        back,
+        "ARGB8888 and RGB565 are distinct variants"
+    );
+}
+
+#[test]
+fn overlay_text_command_roundtrips_sds_5_13() {
+    // SDS §6.1 worked example — admin-only system text overlay (all fields):
+    //   {"id":50,"cmd":"overlay.text","text":"Hello TEST",
+    //    "duration_ms":3000,"z":1,"color":"#FFFFFF"}
+    let j = json!({
+        "id": 50,
+        "cmd": "overlay.text",
+        "text": "Hello TEST",
+        "duration_ms": 3000,
+        "z": 1,
+        "color": "#FFFFFF"
+    });
+    roundtrip_request(j);
+
+    // `duration_ms` / `z` / `color` are all optional (§6.1: "z (default 1) and
+    // color (default white) are optional"; duration_ms `0` = sticky). The
+    // minimal form omits them and must round-trip byte-for-byte (the omitted
+    // fields stay off the wire via skip_serializing_if).
+    let minimal = json!({
+        "id": 51,
+        "cmd": "overlay.text",
+        "text": "x"
+    });
+    roundtrip_request(minimal);
+}
+
+#[test]
+fn overlay_clear_command_roundtrips_sds_5_13() {
+    // SDS §6.1: {"id":51,"cmd":"overlay.clear","z":1}.
+    let j = json!({"id": 52, "cmd": "overlay.clear", "z": 1});
+    roundtrip_request(j);
+
+    // `z` is optional — "overlay.clear with no z clears all admin text
+    // overlays" (§6.1). The clear-all form omits z and round-trips.
+    let clear_all = json!({"id": 53, "cmd": "overlay.clear"});
+    roundtrip_request(clear_all);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1210,4 +1370,165 @@ fn paramvalue_vec3_roundtrips_sds_5_4() {
     );
     let p2: ParamValue = serde_json::from_value(v).unwrap();
     assert_eq!(p, p2);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave 3 — client overlays (acquire/release/dismissed) + `layer` on present +
+//          the EPERM error code  (SDS v7 §5.13, §6.1)
+//
+// W3 adds the CLIENT-provided overlay surface (a privileged client acquires an
+// overlay layer and presents its own ARGB8888 frames into it) and the modal
+// input grab. RED contract — what GREEN must add to `cube-proto`:
+//
+//   - `Request::OverlayAcquire { id, z?, input? }`  (cmd `"overlay.acquire"`).
+//       `z` (optional, default 1) and `input` (optional, default `"none"`;
+//       one of `"none" | "modal"`) — SDS §6.1 worked example.
+//   - `Request::OverlayRelease { id, layer }`       (cmd `"overlay.release"`).
+//   - `Event::OverlayDismissed { layer, reason }`   (event `"overlay.dismissed"`;
+//       `reason ∈ "released" | "focus_lost" | "blanked"`).
+//   - an optional `layer` field on `Request::Present` (absent / `0` ⇒ base
+//       layer; an id returned by `overlay.acquire` ⇒ that overlay layer).
+//   - `CubeErrno::EPERM` — the capability-denied error for an unauthorized
+//       `overlay.acquire` (SDS §5.13 / §6.1).
+//
+// Each test references the new shapes only through the existing
+// `Request`/`Event`/`Response`/`CubeErrno` types, so the binary keeps compiling;
+// each one FAILS AT RUNTIME today (unknown `cmd`/`event`, the `deny_unknown_fields`
+// `layer` rejection, or the unknown `EPERM` token), which is the RED state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
+    // SDS §6.1 worked example — acquire a modal overlay at z = 1:
+    //   {"id":40,"cmd":"overlay.acquire","z":1,"input":"modal"}
+    //      → {"id":40,"ok":true,"result":{"layer":7}}
+    //   {"id":42,"cmd":"overlay.release","layer":7}
+    //   {"event":"overlay.dismissed","layer":7,"reason":"released"}
+    let acquire = json!({"id": 40, "cmd": "overlay.acquire", "z": 1, "input": "modal"});
+    roundtrip_request(acquire);
+
+    // `z` (default 1) and `input` (default "none") are optional — the minimal
+    // acquire omits both and must round-trip byte-for-byte (omitted fields stay
+    // off the wire via skip_serializing_if).
+    let acquire_min = json!({"id": 41, "cmd": "overlay.acquire"});
+    roundtrip_request(acquire_min);
+
+    // `input:"none"` is the visual-only (no grab) variant.
+    let acquire_none = json!({"id": 41, "cmd": "overlay.acquire", "input": "none"});
+    roundtrip_request(acquire_none);
+
+    // The acquire OK response carries the assigned `{layer}` in `result`. The
+    // result body is opaque JSON, so this already round-trips through `Response`
+    // — it documents the wire shape GREEN's handler returns.
+    let acquire_ok = json!({"id": 40, "ok": true, "result": {"layer": 7}});
+    roundtrip_response(acquire_ok);
+
+    // overlay.release names the layer to drop.
+    let release = json!({"id": 42, "cmd": "overlay.release", "layer": 7});
+    roundtrip_request(release);
+
+    // overlay.dismissed EVENT — all three SDS §6.1 reasons.
+    for reason in ["released", "focus_lost", "blanked"] {
+        let dismissed = json!({"event": "overlay.dismissed", "layer": 7, "reason": reason});
+        roundtrip_event(dismissed);
+    }
+}
+
+#[test]
+fn overlay_dismiss_reason_unknown_is_forward_compatible() {
+    use cube_proto::{Event, OverlayDismissReason};
+
+    // A reason token this build does not recognize (a future `cubed` reason, or
+    // an SDK drift) must NOT hard-fail strict decode — the `#[serde(other)]`
+    // catch-all maps it to `Unknown` (issue LEDCube/cube#33). This is the shared
+    // vocabulary both SDKs consume, so an unknown reason is handled identically
+    // to any known one: stop presenting into the layer.
+    let ev: Event = serde_json::from_value(
+        json!({"event": "overlay.dismissed", "layer": 7, "reason": "evicted"}),
+    )
+    .expect("an unknown dismissal reason must decode, not error");
+    match ev {
+        Event::OverlayDismissed { layer, reason } => {
+            assert_eq!(layer, 7);
+            assert_eq!(reason, OverlayDismissReason::Unknown);
+        }
+        other => panic!("expected OverlayDismissed, got {other:?}"),
+    }
+
+    // `Unknown` is a first-class wire citizen: it serializes to `"unknown"` and
+    // round-trips through that token byte-for-byte.
+    roundtrip_event(json!({"event": "overlay.dismissed", "layer": 7, "reason": "unknown"}));
+    let back: Event = serde_json::from_value(
+        json!({"event": "overlay.dismissed", "layer": 1, "reason": "unknown"}),
+    )
+    .expect("the `unknown` token itself decodes");
+    assert!(matches!(
+        back,
+        Event::OverlayDismissed { reason: OverlayDismissReason::Unknown, .. }
+    ));
+
+    // The three known reasons are unaffected — still decode to their variants.
+    for (token, want) in [
+        ("released", OverlayDismissReason::Released),
+        ("focus_lost", OverlayDismissReason::FocusLost),
+        ("blanked", OverlayDismissReason::Blanked),
+    ] {
+        let ev: Event = serde_json::from_value(
+            json!({"event": "overlay.dismissed", "layer": 3, "reason": token}),
+        )
+        .unwrap_or_else(|e| panic!("{token} decode: {e}"));
+        match ev {
+            Event::OverlayDismissed { reason, .. } => assert_eq!(reason, want),
+            other => panic!("expected OverlayDismissed, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn present_with_layer_field_roundtrips_sds_5_1() {
+    // SDS §6.1: `present` gains an optional `layer` selecting which compositor
+    // layer the buffer updates. `layer:7` targets an acquired overlay layer:
+    //   {"id":41,"cmd":"present","seq":1,"buffer_id":2,"layer":7}
+    let to_overlay = json!({
+        "id": 41,
+        "cmd": "present",
+        "seq": 1,
+        "buffer_id": 2,
+        "layer": 7
+    });
+    roundtrip_request(to_overlay);
+
+    // `layer:0` is the base layer (the v6 behaviour), and round-trips alongside
+    // `damage`.
+    let to_base = json!({
+        "id": 11,
+        "cmd": "present",
+        "seq": 100,
+        "buffer_id": 0,
+        "damage": {"x": 0, "y": 0, "w": 384, "h": 64},
+        "layer": 0
+    });
+    roundtrip_request(to_base);
+}
+
+#[test]
+fn eperm_error_roundtrips_sds_5_13() {
+    // SDS §5.13 / §6.1: `overlay.acquire` from a client without overlay
+    // capability returns EPERM. The closed `CubeErrno` set (SDS §5.3) must gain
+    // the `EPERM` variant; it serializes to/from its uppercase name.
+    let code: cube_proto::CubeErrno =
+        serde_json::from_value(json!("EPERM")).expect("CubeErrno must decode the \"EPERM\" token");
+    assert_eq!(serde_json::to_value(&code).unwrap(), json!("EPERM"));
+
+    // …and round-trips inside an `{ok:false,error:{…}}` response envelope.
+    let j = json!({
+        "id": 40,
+        "ok": false,
+        "error": {
+            "code": "EPERM",
+            "message": "overlay capability denied",
+            "context": {}
+        }
+    });
+    roundtrip_response(j);
 }

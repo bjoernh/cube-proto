@@ -23,15 +23,18 @@ pub mod value;
 pub use doctor::{CheckLevel, CheckResult, DoctorReportPayload};
 pub use error::{CubeErrno, CubeError};
 pub use event::{
-    ChangeSource, Event, FocusLostReason, PowerState, PresentDroppedReason, ReleaseReason,
-    SubscriptionEndReason,
+    ChangeSource, Event, FocusLostReason, OverlayDismissReason, PowerState, PresentDroppedReason,
+    ReleaseReason, SubscriptionEndReason,
 };
 pub use handshake_datagram::{HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC};
 pub use input::{BindingScope, ControllerInfo, ControllerProfile};
-pub use request::{HelloResult, Request};
+pub use request::{
+    Capabilities, HelloResult, OverlayInputMode, Request, TransitionKind, TransitionSpec,
+};
 pub use response::{Response, ResponseBody};
 pub use status::{
-    CubedStatus, DisplayStatus, FramesDropped, PauseCauses, PerAppStatus, StatusReport,
+    CompositorStatus, CubedStatus, DisplayStatus, FramesDropped, OverlayStatus, PauseCauses,
+    PerAppStatus, StatusReport,
 };
 pub use subscription::{
     BrightnessSnapshot, HeldButton, InputBindingsSnapshot, InputCaptureSnapshot, LifecycleSnapshot,

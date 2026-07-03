@@ -73,9 +73,11 @@ fn status_report_roundtrips_every_field_sds_11_1() {
                 blanked: 3,
             },
             spi_errors: 0,
+            commit_errors: 0,
             blank_source: "none".to_owned(),
         },
         per_app,
+        compositor: cube_proto::CompositorStatus::default(),
     };
 
     let v = serde_json::to_value(&report).unwrap();

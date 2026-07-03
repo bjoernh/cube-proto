@@ -19,12 +19,19 @@ pub struct Damage {
 // Format
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Pixel format for a registered buffer (SDS §6.1).
+/// Pixel format for a registered buffer (SDS §6.1, §5.13).
+///
+/// Base/app layers are `RGB565` (no alpha); overlay layers are `ARGB8888`
+/// (real alpha for `over` compositing — SDS v7 §5.13 / changelog "Pixel
+/// formats").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Format {
     #[serde(rename = "RGB565")]
     Rgb565,
+    /// 4 bytes/pixel with a real alpha byte — the overlay-layer format (W2/W3).
+    #[serde(rename = "ARGB8888")]
+    Argb8888,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,6 +51,13 @@ pub struct Color {
 impl Color {
     pub fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
+    }
+
+    /// The `(r, g, b, a)` channels. Used by the system text-overlay path to
+    /// drive the glyph renderer's foreground colour (SDS v7 §5.13 / §6.1).
+    #[must_use]
+    pub fn rgba(&self) -> (u8, u8, u8, u8) {
+        (self.r, self.g, self.b, self.a)
     }
 }
 

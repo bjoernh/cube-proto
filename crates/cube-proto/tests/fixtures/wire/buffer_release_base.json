@@ -1,0 +1,6 @@
+{
+  "buffer_id": 0,
+  "event": "buffer.release",
+  "reason": "displayed",
+  "seq": 100
+}
