@@ -6,8 +6,8 @@
 //! produce TOML that `load_manifest` / `load_schema` accept and round-trip.
 
 use cube_config::{
-    AppSection, Manifest, ManifestCategory, ParamType, PowerSection, RequiresSection, Schema,
-    load_manifest, load_schema, manifest_to_toml, schema_to_toml,
+    Accent, AppSection, Manifest, ManifestCategory, ParamType, Players, PowerSection,
+    RequiresSection, Schema, load_manifest, load_schema, manifest_to_toml, schema_to_toml,
 };
 use cube_proto::ParamValue;
 use semver::{Version, VersionReq};
@@ -29,6 +29,10 @@ fn sample_manifest() -> Manifest {
             version: Version::parse("2.0.0").unwrap(),
             category: ManifestCategory::Visualizer,
             icon: None,
+            accent: None,
+            description: None,
+            preview: None,
+            players: None,
         },
         requires: Some(RequiresSection {
             libcube: None,
@@ -76,6 +80,57 @@ fn manifest_to_toml_is_stable_and_sorted() {
     assert!(cat < name, "[app] keys are sorted (category before name)");
     // A None Option (icon) must be omitted entirely.
     assert!(!a.contains("icon"), "absent icon is not emitted:\n{a}");
+}
+
+/// SDS v7.1 §A1: the four metadata fields (`accent`/`description`/`preview`/
+/// `players`) emit and round-trip through the loader. `players` emits as an
+/// inline table `{ min, max }`.
+#[test]
+fn manifest_to_toml_round_trips_the_a1_metadata_fields() {
+    let m = Manifest {
+        app: AppSection {
+            name: "snake".to_owned(),
+            display_name: "Snake".to_owned(),
+            version: Version::parse("2.0.0").unwrap(),
+            category: ManifestCategory::Game,
+            icon: Some("icon.png".to_owned()),
+            accent: Some(Accent::Green),
+            description: Some("Classic snake, six faces".to_owned()),
+            preview: Some("preview.gif".to_owned()),
+            players: Some(Players { min: 1, max: 1 }),
+        },
+        requires: None,
+        power: None,
+        overlay: None,
+    };
+
+    let toml = manifest_to_toml(&m);
+    // `players` is emitted inline, not as a `[app.players]` sub-section.
+    assert!(
+        toml.contains("players = {") && toml.contains("min = 1") && toml.contains("max = 1"),
+        "players must emit as an inline table, got:\n{toml}"
+    );
+    assert!(
+        !toml.contains("[app.players]"),
+        "players must not emit as a sub-section, got:\n{toml}"
+    );
+    assert!(toml.contains("accent = \"green\""), "accent token lowercase:\n{toml}");
+
+    let (_dir, path) = write_tmp("manifest.toml", &toml);
+    let back = load_manifest(&path).expect("emitted enriched manifest must parse");
+    assert_eq!(back.app.accent, Some(Accent::Green));
+    assert_eq!(back.app.description.as_deref(), Some("Classic snake, six faces"));
+    assert_eq!(back.app.preview.as_deref(), Some("preview.gif"));
+    assert_eq!(back.app.players, Some(Players { min: 1, max: 1 }));
+}
+
+/// SDS v7.1 §A1: all four §A1 fields are omitted from emitted TOML when unset.
+#[test]
+fn manifest_to_toml_omits_absent_a1_metadata_fields() {
+    let a = manifest_to_toml(&sample_manifest());
+    for key in ["accent", "description", "preview", "players"] {
+        assert!(!a.contains(key), "absent {key} must not be emitted:\n{a}");
+    }
 }
 
 // ── schema ───────────────────────────────────────────────────────────────────

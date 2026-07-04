@@ -7,7 +7,7 @@
 //! App `name` reuses the same regex as preset names (SDS §5.5):
 //! `^[a-zA-Z0-9._-]+$` and explicitly rejects `.` and `..`.
 
-use cube_config::{ConfigError, ManifestCategory, load_manifest};
+use cube_config::{Accent, ConfigError, ManifestCategory, Players, load_manifest};
 
 fn write(toml: &str) -> std::path::PathBuf {
     let dir = tempfile::tempdir().unwrap();
@@ -317,4 +317,134 @@ fn manifest_power_table_absent_defaults_false_sds_7_2() {
             "absent [power] table must imply idle_blank = false"
         ),
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SDS v7.1 §A1/§A2: [app] metadata fields accent / description / preview / players
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A `[app]` manifest carrying an accent, a full `[app]` header with the four
+/// new metadata fields (SDS v7.1 §A1). `players` is an inline `{ min, max }`.
+const SNAKE_ENRICHED: &str = "\
+[app]
+name = \"snake\"
+display_name = \"Snake\"
+version = \"2.0.0\"
+category = \"game\"
+icon = \"icon.png\"
+accent = \"green\"
+description = \"Classic snake, six faces\"
+preview = \"preview.gif\"
+players = { min = 1, max = 2 }
+
+[requires]
+libcube = \">= 2.0\"
+inputs = [\"joystick\"]
+sensors = []
+";
+
+/// SDS v7.1 §A1/§A2: the four metadata fields parse into `AppSection`.
+#[test]
+fn manifest_parses_a1_metadata_fields_sds_7_1() {
+    let p = write(SNAKE_ENRICHED);
+    let m = load_manifest(&p).expect("enriched manifest must parse");
+    assert_eq!(m.app.accent, Some(Accent::Green));
+    assert_eq!(m.app.description.as_deref(), Some("Classic snake, six faces"));
+    assert_eq!(m.app.preview.as_deref(), Some("preview.gif"));
+    assert_eq!(m.app.players, Some(Players { min: 1, max: 2 }));
+}
+
+/// SDS v7.1 §A1: all four metadata fields are optional (absent ⇒ None).
+#[test]
+fn manifest_a1_metadata_fields_are_optional_sds_7_1() {
+    let p = write(SNAKE);
+    let m = load_manifest(&p).expect("manifest must parse");
+    assert!(m.app.accent.is_none());
+    assert!(m.app.description.is_none());
+    assert!(m.app.preview.is_none());
+    assert!(m.app.players.is_none());
+}
+
+/// SDS v7.1 §A2: `accent` accepts every token of the closed canonical palette.
+#[test]
+fn manifest_accepts_all_known_accents_sds_7_1() {
+    let cases = [
+        ("red", Accent::Red),
+        ("amber", Accent::Amber),
+        ("yellow", Accent::Yellow),
+        ("green", Accent::Green),
+        ("cyan", Accent::Cyan),
+        ("blue", Accent::Blue),
+        ("violet", Accent::Violet),
+        ("magenta", Accent::Magenta),
+    ];
+    for (tok, expected) in cases {
+        let body = SNAKE.replace(
+            "icon = \"icon.png\"",
+            &format!("icon = \"icon.png\"\naccent = \"{tok}\""),
+        );
+        let p = write(&body);
+        let m = load_manifest(&p).unwrap_or_else(|e| panic!("accent {tok:?} must parse: {e}"));
+        assert_eq!(m.app.accent, Some(expected), "accent {tok:?}");
+    }
+}
+
+/// SDS v7.1 §A2: an unknown `accent` token is rejected via the closed enum,
+/// surfaced as `ConfigError::Parse` (never a panic) so `cubectl doctor` sees it.
+#[test]
+fn manifest_rejects_unknown_accent_token_sds_7_1() {
+    let body = SNAKE.replace(
+        "icon = \"icon.png\"",
+        "icon = \"icon.png\"\naccent = \"chartreuse\"",
+    );
+    let p = write(&body);
+    let err = load_manifest(&p).expect_err("unknown accent token must be rejected");
+    assert!(
+        matches!(err, ConfigError::Parse { .. }),
+        "unknown accent must surface as ConfigError::Parse, got {err:?}"
+    );
+}
+
+/// SDS v7.1 §A1: `players` with `min > max` is rejected by the loader.
+#[test]
+fn manifest_rejects_players_min_gt_max_sds_7_1() {
+    let body = SNAKE.replace(
+        "icon = \"icon.png\"",
+        "icon = \"icon.png\"\nplayers = { min = 3, max = 2 }",
+    );
+    let p = write(&body);
+    let err = load_manifest(&p).expect_err("players min > max must be rejected");
+    assert!(
+        matches!(err, ConfigError::Parse { .. }),
+        "players min > max must be ConfigError::Parse, got {err:?}"
+    );
+    assert!(format!("{err}").contains("players"), "message names players");
+}
+
+/// SDS v7.1 §A1: `players` with `min < 1` is rejected by the loader.
+#[test]
+fn manifest_rejects_players_min_below_one_sds_7_1() {
+    let body = SNAKE.replace(
+        "icon = \"icon.png\"",
+        "icon = \"icon.png\"\nplayers = { min = 0, max = 2 }",
+    );
+    let p = write(&body);
+    let err = load_manifest(&p).expect_err("players min < 1 must be rejected");
+    assert!(
+        matches!(err, ConfigError::Parse { .. }),
+        "players min < 1 must be ConfigError::Parse, got {err:?}"
+    );
+    assert!(format!("{err}").contains("players"), "message names players");
+}
+
+/// SDS v7.1 §A1: `players` with `min == max` (a fixed count) is accepted.
+#[test]
+fn manifest_accepts_players_min_eq_max_sds_7_1() {
+    let body = SNAKE.replace(
+        "icon = \"icon.png\"",
+        "icon = \"icon.png\"\nplayers = { min = 1, max = 1 }",
+    );
+    let p = write(&body);
+    let m = load_manifest(&p).expect("players min == max must parse");
+    assert_eq!(m.app.players, Some(Players { min: 1, max: 1 }));
 }
