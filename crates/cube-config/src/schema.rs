@@ -230,10 +230,20 @@ struct RawSchema {
     gamepad: RawGamepad,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize)]
 struct RawGamepad {
     #[serde(default = "default_true")]
     l1r1_preset_switching: bool,
+}
+
+impl Default for RawGamepad {
+    /// A missing `[gamepad]` section means the documented defaults — preset
+    /// switching ON (cube#17; mirrors [`GamepadSchema::default`]). The derived
+    /// `Default` used `false` here, silently disabling L1/R1 preset switching
+    /// for every app without an explicit `[gamepad]` table.
+    fn default() -> Self {
+        Self { l1r1_preset_switching: true }
+    }
 }
 
 #[derive(Deserialize)]
