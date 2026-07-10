@@ -32,7 +32,7 @@ pub fn make_layout(root: &Path, app: &str) -> (PathBuf, PathBuf) {
 /// Construct a `PresetStore<RealFsOps>` over the standard layout.
 pub fn make_store(root: &Path, app: &str) -> (PresetStore<RealFsOps>, PathBuf, PathBuf) {
     let (system_root, user_root) = make_layout(root, app);
-    let store = PresetStore::new(system_root.clone(), user_root.clone(), RealFsOps::default());
+    let store = PresetStore::new(system_root.clone(), user_root.clone(), RealFsOps);
     (store, system_root, user_root)
 }
 

@@ -67,17 +67,19 @@ fn preset(name: &str, n: i64) -> PresetFile {
     }
 }
 
+// The preset store writes exact lowercase extensions; exact comparison intended.
+#[expect(clippy::case_sensitive_file_extension_comparisons)]
 fn dir_debris_check(dir: &Path) {
     for entry in std::fs::read_dir(dir).unwrap() {
         let entry = entry.unwrap();
         let name = entry.file_name().to_string_lossy().into_owned();
         assert!(
             !name.starts_with(".tmp."),
-            "found temp debris {name} in {dir:?}",
+            "found temp debris {name} in {}", dir.display(),
         );
         assert!(
             name.ends_with(".toml") || name.ends_with(".deleted"),
-            "found unexpected artifact {name} in {dir:?}",
+            "found unexpected artifact {name} in {}", dir.display(),
         );
     }
 }
@@ -102,8 +104,7 @@ proptest! {
                 Op::Save(n, v) => {
                     // Valid names succeed; invalid names must return BadRequest.
                     match store.save("x", n, &preset(n, *v), &schema) {
-                        Ok(_) => {}
-                        Err(PresetError::BadRequest(_)) => {}
+                        Ok(_) | Err(PresetError::BadRequest(_)) => {}
                         Err(other) => prop_assert!(
                             false,
                             "unexpected save error for {n:?}: {other:?}",
@@ -112,8 +113,7 @@ proptest! {
                 }
                 Op::Delete(n) => {
                     match store.delete("x", n) {
-                        Ok(_) | Err(PresetError::NotFound) => {}
-                        Err(PresetError::BadRequest(_)) => {}
+                        Ok(()) | Err(PresetError::NotFound | PresetError::BadRequest(_)) => {}
                         Err(other) => prop_assert!(
                             false,
                             "unexpected delete error for {n:?}: {other:?}",

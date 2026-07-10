@@ -1,8 +1,8 @@
 //! SDS v6 §5.13 — event subscription & telemetry: wire-surface round-trips.
 //!
 //! Pins the §5.13 protocol surface: the extended `subscribe` request (events /
-//! interval_ms / snapshot / max_events / timeout_ms), the reshaped
-//! `unsubscribe` (sub_id | all | legacy app), the new `subscriptions`
+//! `interval_ms` / snapshot / `max_events` / `timeout_ms`), the reshaped
+//! `unsubscribe` (`sub_id` | all | legacy app), the new `subscriptions`
 //! introspection verb, the new event payloads (`app.state`, `focus.changed`,
 //! `app.stats`, `brightness.changed`, `subscription.ended`), the optional
 //! `event_seq` on reliable events, `pause_causes` on `PerAppStatus`, the
@@ -27,17 +27,17 @@ use cube_proto::{
 // helpers (mirroring wire_roundtrip.rs)
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn roundtrip_request(j: Value) -> Request {
+fn roundtrip_request(j: &Value) -> Request {
     let req: Request = serde_json::from_value(j.clone()).expect("Request decode");
     let back = serde_json::to_value(&req).expect("Request encode");
-    assert_eq!(back, j, "Request did not round-trip");
+    assert_eq!(&back, j, "Request did not round-trip");
     req
 }
 
-fn roundtrip_event(j: Value) -> Event {
+fn roundtrip_event(j: &Value) -> Event {
     let ev: Event = serde_json::from_value(j.clone()).expect("Event decode");
     let back = serde_json::to_value(&ev).expect("Event encode");
-    assert_eq!(back, j, "Event did not round-trip");
+    assert_eq!(&back, j, "Event did not round-trip");
     ev
 }
 
@@ -56,7 +56,7 @@ fn subscribe_full_form_roundtrips_sds_5_13() {
         "interval_ms": 1000,
         "snapshot": true
     });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     match req {
         Request::Subscribe {
             id,
@@ -99,7 +99,7 @@ fn subscribe_bounded_form_roundtrips_sds_5_13() {
         "max_events": 16,
         "timeout_ms": 3000
     });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     match req {
         Request::Subscribe {
             max_events,
@@ -126,7 +126,7 @@ fn subscribe_legacy_param_form_roundtrips_unchanged_sds_5_13() {
         "cmd": "subscribe",
         "app": "snake"
     });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     match req {
         Request::Subscribe {
             id,
@@ -172,7 +172,7 @@ fn subscribe_without_app_defaults_to_star_sds_5_13() {
 #[test]
 fn unsubscribe_by_sub_id_roundtrips_sds_5_13() {
     let j = json!({ "id": 18, "cmd": "unsubscribe", "sub_id": "s-3" });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     match req {
         Request::Unsubscribe {
             id,
@@ -192,7 +192,7 @@ fn unsubscribe_by_sub_id_roundtrips_sds_5_13() {
 #[test]
 fn unsubscribe_all_roundtrips_sds_5_13() {
     let j = json!({ "id": 18, "cmd": "unsubscribe", "all": true });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     match req {
         Request::Unsubscribe {
             sub_id, app, all, ..
@@ -209,7 +209,7 @@ fn unsubscribe_all_roundtrips_sds_5_13() {
 fn unsubscribe_legacy_app_form_roundtrips_unchanged_sds_5_13() {
     // Back-compat: the existing `{id, app}` unsubscribe keeps its exact shape.
     let j = json!({ "id": 9, "cmd": "unsubscribe", "app": "snake" });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     match req {
         Request::Unsubscribe {
             app, sub_id, all, ..
@@ -225,7 +225,7 @@ fn unsubscribe_legacy_app_form_roundtrips_unchanged_sds_5_13() {
 #[test]
 fn subscriptions_request_roundtrips_sds_5_13() {
     let j = json!({ "id": 19, "cmd": "subscriptions" });
-    let req = roundtrip_request(j);
+    let req = roundtrip_request(&j);
     assert!(matches!(req, Request::Subscriptions { id: 19 }));
 }
 
@@ -243,7 +243,7 @@ fn app_state_event_with_cause_roundtrips_sds_5_13() {
         "cause": { "focus_lost": true, "blanked": false },
         "event_seq": 5015
     });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::AppState {
             app,
@@ -275,7 +275,7 @@ fn app_state_event_without_cause_omits_field_sds_5_13() {
         "to": "stopping",
         "event_seq": 5021
     });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::AppState { cause, .. } => assert_eq!(cause, None),
         other => panic!("expected AppState, got {other:?}"),
@@ -290,7 +290,7 @@ fn focus_changed_event_roundtrips_sds_5_13() {
         "previous": "launcher",
         "event_seq": 5016
     });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::FocusChanged {
             focused_app,
@@ -314,7 +314,7 @@ fn focus_changed_event_omits_absent_apps_sds_5_13() {
         "focused_app": "launcher",
         "event_seq": 1
     });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::FocusChanged {
             focused_app,
@@ -336,7 +336,7 @@ fn focus_changed_event_omits_absent_apps_sds_5_13() {
 fn app_started_v5_shape_unchanged_sds_5_13() {
     // The v5 wire shape must survive byte-identically when event_seq is None.
     let j = json!({ "event": "app.started", "app": "snake" });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::AppStarted { app, event_seq } => {
             assert_eq!(app, "snake");
@@ -349,7 +349,7 @@ fn app_started_v5_shape_unchanged_sds_5_13() {
 #[test]
 fn app_started_with_event_seq_roundtrips_sds_5_13() {
     let j = json!({ "event": "app.started", "app": "snake", "event_seq": 5013 });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::AppStarted { event_seq, .. } => assert_eq!(event_seq, Some(5013)),
         other => panic!("expected AppStarted, got {other:?}"),
@@ -366,7 +366,7 @@ fn app_stopped_with_reason_and_event_seq_roundtrips_sds_5_13() {
         "reason": "evicted",
         "event_seq": 5014
     });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::AppStopped {
             app,
@@ -384,7 +384,7 @@ fn app_stopped_with_reason_and_event_seq_roundtrips_sds_5_13() {
 #[test]
 fn power_state_with_event_seq_roundtrips_sds_5_13() {
     let j = json!({ "event": "power.state", "state": "blanked", "event_seq": 5017 });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::PowerState { state, event_seq } => {
             assert_eq!(state, PowerState::Blanked);
@@ -397,7 +397,7 @@ fn power_state_with_event_seq_roundtrips_sds_5_13() {
 #[test]
 fn power_state_v5_shape_unchanged_sds_5_13() {
     let j = json!({ "event": "power.state", "state": "active" });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::PowerState { event_seq, .. } => assert_eq!(event_seq, None),
         other => panic!("expected PowerState, got {other:?}"),
@@ -419,7 +419,7 @@ fn app_stats_event_roundtrips_sds_5_13() {
         "drops_delta": 0,
         "frame_seq": 218_833
     });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::AppStats {
             app,
@@ -442,7 +442,7 @@ fn app_stats_event_roundtrips_sds_5_13() {
 fn brightness_changed_event_roundtrips_sds_5_13() {
     // Coalescible class: carries no event_seq, ever.
     let j = json!({ "event": "brightness.changed", "value": 200 });
-    let ev = roundtrip_event(j);
+    let ev = roundtrip_event(&j);
     match ev {
         Event::BrightnessChanged { value } => assert_eq!(value, 200),
         other => panic!("expected BrightnessChanged, got {other:?}"),
@@ -461,7 +461,7 @@ fn subscription_ended_roundtrips_all_reasons_sds_5_13() {
             "sub_id": "s-3",
             "reason": reason_str
         });
-        let ev = roundtrip_event(j);
+        let ev = roundtrip_event(&j);
         match ev {
             Event::SubscriptionEnded { sub_id, reason: r } => {
                 assert_eq!(sub_id, "s-3");
@@ -747,7 +747,7 @@ fn pause_causes_roundtrips_sds_5_13() {
     let p: PauseCauses = serde_json::from_value(j.clone()).expect("PauseCauses decode");
     assert!(p.focus_lost);
     assert!(p.blanked);
-    assert_eq!(serde_json::to_value(&p).unwrap(), j);
+    assert_eq!(serde_json::to_value(p).unwrap(), j);
 }
 
 #[test]

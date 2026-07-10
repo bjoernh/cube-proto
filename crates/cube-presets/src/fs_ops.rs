@@ -154,6 +154,7 @@ enum BarrierTrigger {
 
 impl RecordingFsOps {
     /// Create a `RecordingFsOps` with no barrier.
+    #[must_use] 
     pub fn new(_root: &Path) -> Self {
         Self {
             inner: RealFsOps,

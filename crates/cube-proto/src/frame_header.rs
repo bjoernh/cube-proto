@@ -38,6 +38,7 @@ pub struct FrameHeader {
 
 impl FrameHeader {
     /// Encode the header to a 16-byte array (little-endian).
+    #[must_use] 
     pub fn encode(self) -> [u8; FRAME_HEADER_BYTES] {
         let mut buf = [0u8; FRAME_HEADER_BYTES];
         buf[0..4].copy_from_slice(&self.magic.to_le_bytes());
@@ -85,6 +86,7 @@ pub struct SeqGuard {
 impl SeqGuard {
     /// Create a new guard.  `_initial` is currently unused but kept for API
     /// forward-compatibility.
+    #[must_use] 
     pub fn new(_initial: u32) -> Self {
         Self { last: None }
     }

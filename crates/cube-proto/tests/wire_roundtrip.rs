@@ -1,4 +1,4 @@
-//! Round-trip tests for every wire type in scope for local Unix SOCK_SEQPACKET
+//! Round-trip tests for every wire type in scope for local Unix `SOCK_SEQPACKET`
 //! transport. Each test pins one concrete JSON shape (`serde_json::json!`),
 //! deserializes it into the appropriate `cube_proto` type, re-serializes, and
 //! compares the resulting `serde_json::Value` to the original.
@@ -24,37 +24,37 @@ use cube_proto::{Damage, Event, Format, HelloResult, ParamValue, Request, Respon
 // helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn roundtrip_request(j: Value) -> Value {
+fn roundtrip_request(j: &Value) -> Value {
     let req: Request = serde_json::from_value(j.clone()).expect("Request decode");
     let back = serde_json::to_value(&req).expect("Request encode");
-    assert_eq!(back, j, "Request did not round-trip");
+    assert_eq!(&back, j, "Request did not round-trip");
     // bytes round-trip too
     let bytes = serde_json::to_vec(&req).expect("Request to_vec");
     let req2: Request = serde_json::from_slice(&bytes).expect("Request from_slice");
     let back2 = serde_json::to_value(&req2).expect("Request encode #2");
-    assert_eq!(back2, j, "Request bytes round-trip mismatch");
+    assert_eq!(&back2, j, "Request bytes round-trip mismatch");
     back
 }
 
-fn roundtrip_event(j: Value) -> Value {
+fn roundtrip_event(j: &Value) -> Value {
     let ev: Event = serde_json::from_value(j.clone()).expect("Event decode");
     let back = serde_json::to_value(&ev).expect("Event encode");
-    assert_eq!(back, j, "Event did not round-trip");
+    assert_eq!(&back, j, "Event did not round-trip");
     let bytes = serde_json::to_vec(&ev).expect("Event to_vec");
     let ev2: Event = serde_json::from_slice(&bytes).expect("Event from_slice");
     let back2 = serde_json::to_value(&ev2).expect("Event encode #2");
-    assert_eq!(back2, j, "Event bytes round-trip mismatch");
+    assert_eq!(&back2, j, "Event bytes round-trip mismatch");
     back
 }
 
-fn roundtrip_response(j: Value) -> Value {
+fn roundtrip_response(j: &Value) -> Value {
     let r: Response = serde_json::from_value(j.clone()).expect("Response decode");
     let back = serde_json::to_value(&r).expect("Response encode");
-    assert_eq!(back, j, "Response did not round-trip");
+    assert_eq!(&back, j, "Response did not round-trip");
     let bytes = serde_json::to_vec(&r).expect("Response to_vec");
     let r2: Response = serde_json::from_slice(&bytes).expect("Response from_slice");
     let back2 = serde_json::to_value(&r2).expect("Response encode #2");
-    assert_eq!(back2, j, "Response bytes round-trip mismatch");
+    assert_eq!(&back2, j, "Response bytes round-trip mismatch");
     back
 }
 
@@ -69,7 +69,7 @@ fn hello_request_roundtrips_sds_5_3() {
         "cmd": "hello",
         "protocol_version": "1.0.0"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn hello_request_v6_minor_roundtrips_sds_5_3() {
         "cmd": "hello",
         "protocol_version": cube_proto::PROTOCOL_VERSION
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn response_ok_with_hello_result_roundtrips_sds_5_3_v6_delta_7() {
         "ok": true,
         "result": {"protocol_version": "1.1", "surface": "v6"}
     });
-    roundtrip_response(j);
+    roundtrip_response(&j);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn register_request_roundtrips_sds_5_3() {
         "name": "snake",
         "mode": "supervised"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn register_request_dev_mode_roundtrips_sds_5_3() {
         "name": "snake",
         "mode": "dev"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,55 +154,55 @@ fn register_request_dev_mode_roundtrips_sds_5_3() {
 #[test]
 fn list_request_roundtrips_sds_5_3() {
     let j = json!({"id": 4, "cmd": "list"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn status_request_roundtrips_sds_5_3() {
     let j = json!({"id": 5, "cmd": "status", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn status_request_no_app_roundtrips_sds_5_3() {
     let j = json!({"id": 6, "cmd": "status"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn launch_request_roundtrips_sds_5_3() {
     let j = json!({"id": 7, "cmd": "launch", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn stop_request_roundtrips_sds_5_3() {
     let j = json!({"id": 8, "cmd": "stop", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn stop_request_no_app_roundtrips_sds_5_3() {
     let j = json!({"id": 9, "cmd": "stop"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn focus_request_roundtrips_sds_5_3() {
     let j = json!({"id": 10, "cmd": "focus", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn restart_request_roundtrips_sds_5_3() {
     let j = json!({"id": 11, "cmd": "restart", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn journal_request_roundtrips_arch_8_4() {
     let j = json!({"id": 12, "cmd": "journal", "app": "snake", "follow": false, "tail": 100});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ fn buffer_register_request_roundtrips_sds_6_1() {
         "stride": 768,
         "size": 49152
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -237,7 +237,7 @@ fn present_request_with_damage_roundtrips_sds_6_1() {
         "buffer_id": 0,
         "damage": {"x": 0, "y": 0, "w": 384, "h": 64}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -248,7 +248,7 @@ fn present_request_no_damage_roundtrips_sds_6_1() {
         "seq": 101,
         "buffer_id": 0
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,13 +258,13 @@ fn present_request_no_damage_roundtrips_sds_6_1() {
 #[test]
 fn get_request_roundtrips_sds_5_4() {
     let j = json!({"id": 20, "cmd": "get", "app": "snake", "key": "speed"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn get_all_request_roundtrips_sds_5_4() {
     let j = json!({"id": 21, "cmd": "get-all", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn set_request_int_roundtrips_sds_5_4() {
         "key": "speed",
         "value": {"type": "int", "value": 5}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -288,7 +288,7 @@ fn set_request_color_roundtrips_sds_5_4() {
         "key": "tint",
         "value": {"type": "color", "value": "#FF8800"}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -302,31 +302,31 @@ fn set_many_request_roundtrips_sds_5_4() {
             "wrap":  {"type": "bool", "value": true}
         }
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn describe_request_one_key_roundtrips_sds_5_4() {
     let j = json!({"id": 25, "cmd": "describe", "app": "snake", "key": "speed"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn describe_request_all_keys_roundtrips_sds_5_4() {
     let j = json!({"id": 26, "cmd": "describe", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn subscribe_request_roundtrips_sds_5_4() {
     let j = json!({"id": 27, "cmd": "subscribe", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn unsubscribe_request_roundtrips_sds_5_4() {
     let j = json!({"id": 28, "cmd": "unsubscribe", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -337,37 +337,37 @@ fn unsubscribe_request_roundtrips_sds_5_4() {
 #[test]
 fn preset_list_request_roundtrips_sds_5_5() {
     let j = json!({"id": 30, "cmd": "preset.list", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn preset_load_request_roundtrips_sds_5_5() {
     let j = json!({"id": 31, "cmd": "preset.load", "app": "snake", "name": "default"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn preset_save_request_roundtrips_sds_5_5() {
     let j = json!({"id": 32, "cmd": "preset.save", "app": "snake", "name": "fast"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn preset_delete_request_roundtrips_sds_5_5() {
     let j = json!({"id": 33, "cmd": "preset.delete", "app": "snake", "name": "fast"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn preset_current_request_roundtrips_sds_5_5() {
     let j = json!({"id": 34, "cmd": "preset.current", "app": "snake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn preset_export_request_roundtrips_sds_5_5() {
     let j = json!({"id": 35, "cmd": "preset.export", "app": "snake", "name": "default"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -378,7 +378,7 @@ fn preset_import_request_roundtrips_sds_5_5() {
         "app": "snake",
         "toml": "[meta]\napp=\"snake\"\nschema_version=1\npreset_name=\"x\"\n[params]\nspeed=5\n"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -388,19 +388,19 @@ fn preset_import_request_roundtrips_sds_5_5() {
 #[test]
 fn brightness_set_request_roundtrips_sds_5_10() {
     let j = json!({"id": 40, "cmd": "brightness.set", "value": 128});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn brightness_get_request_roundtrips_sds_5_10() {
     let j = json!({"id": 41, "cmd": "brightness.get"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn doctor_report_request_roundtrips_sds_11_1() {
     let j = json!({"id": 41, "cmd": "doctor.report"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -410,13 +410,13 @@ fn doctor_report_request_roundtrips_sds_11_1() {
 #[test]
 fn power_blank_request_roundtrips_sds_5_12() {
     let j = json!({"id": 50, "cmd": "power.blank"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn power_wake_request_roundtrips_sds_5_12() {
     let j = json!({"id": 51, "cmd": "power.wake"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -444,7 +444,7 @@ fn transition_field_roundtrips_on_launch_sds_6_1() {
         "app": "pixelflow",
         "transition": {"kind": "cut"}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -456,7 +456,7 @@ fn transition_field_roundtrips_on_focus_sds_6_1() {
         "app": "snake",
         "transition": {"kind": "crossfade", "duration_ms": 250}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -472,7 +472,7 @@ fn transition_field_roundtrips_on_focus_sds_6_1() {
 #[test]
 fn transition_dissolve_roundtrips_sds_5_13() {
     let j = json!({"id": 60, "cmd": "focus", "app": "snake", "transition": {"kind": "dissolve"}});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -483,7 +483,7 @@ fn transition_dip_to_black_roundtrips_sds_5_13() {
         "app": "pixelflow",
         "transition": {"kind": "dip_to_black", "duration_ms": 400}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -494,13 +494,13 @@ fn transition_particle_dissolve_roundtrips_sds_5_13() {
         "app": "snake",
         "transition": {"kind": "particle_dissolve", "duration_ms": 600}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
 fn transition_push_roundtrips_sds_5_13() {
     let j = json!({"id": 63, "cmd": "focus", "app": "snake", "transition": {"kind": "push"}});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -528,12 +528,12 @@ fn format_argb8888_roundtrips_sds_5_1() {
     let v = json!("ARGB8888");
     let f: Format =
         serde_json::from_value(v.clone()).expect("Format must decode the \"ARGB8888\" token");
-    let back = serde_json::to_value(&f).expect("encode");
+    let back = serde_json::to_value(f).expect("encode");
     assert_eq!(back, v, "ARGB8888 round-trips to the same wire token");
     // RGB565 still decodes (the new variant is additive, not a replacement).
     let r: Format = serde_json::from_value(json!("RGB565")).expect("RGB565 still decodes");
     assert_ne!(
-        serde_json::to_value(&r).unwrap(),
+        serde_json::to_value(r).unwrap(),
         back,
         "ARGB8888 and RGB565 are distinct variants"
     );
@@ -552,7 +552,7 @@ fn overlay_text_command_roundtrips_sds_5_13() {
         "z": 1,
         "color": "#FFFFFF"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 
     // `duration_ms` / `z` / `color` are all optional (§6.1: "z (default 1) and
     // color (default white) are optional"; duration_ms `0` = sticky). The
@@ -563,19 +563,19 @@ fn overlay_text_command_roundtrips_sds_5_13() {
         "cmd": "overlay.text",
         "text": "x"
     });
-    roundtrip_request(minimal);
+    roundtrip_request(&minimal);
 }
 
 #[test]
 fn overlay_clear_command_roundtrips_sds_5_13() {
     // SDS §6.1: {"id":51,"cmd":"overlay.clear","z":1}.
     let j = json!({"id": 52, "cmd": "overlay.clear", "z": 1});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 
     // `z` is optional — "overlay.clear with no z clears all admin text
     // overlays" (§6.1). The clear-all form omits z and round-trips.
     let clear_all = json!({"id": 53, "cmd": "overlay.clear"});
-    roundtrip_request(clear_all);
+    roundtrip_request(&clear_all);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -585,14 +585,14 @@ fn overlay_clear_command_roundtrips_sds_5_13() {
 #[test]
 fn response_ok_with_result_roundtrips_sds_5_3() {
     let j = json!({"id": 7, "ok": true, "result": {"any": "value"}});
-    roundtrip_response(j);
+    roundtrip_response(&j);
 }
 
 #[test]
 fn response_ok_empty_result_roundtrips_sds_5_3() {
     // `buffer.register` returns just `{"id":10,"ok":true}` per SDS §6.1
     let j = json!({"id": 10, "ok": true});
-    roundtrip_response(j);
+    roundtrip_response(&j);
 }
 
 #[test]
@@ -606,7 +606,7 @@ fn response_error_roundtrips_sds_5_3() {
             "context": {"app": "ghost"}
         }
     });
-    roundtrip_response(j);
+    roundtrip_response(&j);
 }
 
 #[test]
@@ -622,7 +622,7 @@ fn response_preset_import_warnings_roundtrips_sds_5_5() {
             ]
         }
     });
-    roundtrip_response(j);
+    roundtrip_response(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -632,7 +632,7 @@ fn response_preset_import_warnings_roundtrips_sds_5_5() {
 #[test]
 fn app_started_event_roundtrips_sds_5_3() {
     let j = json!({"event": "app.started", "app": "snake"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -641,13 +641,13 @@ fn app_stopped_event_roundtrips_sds_5_3() {
     // skip_serializing_if = "Option::is_none")]` so this v5-shaped literal
     // still round-trips byte-for-byte (backward compat, SDS v6 delta §7).
     let j = json!({"event": "app.stopped", "app": "snake"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn app_stopped_event_with_reason_roundtrips_sds_6_2() {
     let j = json!({"event": "app.stopped", "app": "snake", "reason": "control_lost"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -655,7 +655,7 @@ fn app_stopped_event_with_frame_stream_idle_reason_roundtrips_sds_6_2() {
     // SDS v6 §6.2 / item 2.7: the `frame_stream_idle` teardown reason added
     // to the `app.stopped` wire vocabulary.
     let j = json!({"event": "app.stopped", "app": "snake", "reason": "frame_stream_idle"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -665,25 +665,25 @@ fn app_stopped_event_with_frame_stream_idle_reason_roundtrips_sds_6_2() {
 #[test]
 fn focus_lost_event_app_switch_roundtrips_sds_6_1() {
     let j = json!({"event": "focus.lost", "reason": "app_switch"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn focus_lost_event_home_roundtrips_sds_6_1() {
     let j = json!({"event": "focus.lost", "reason": "home"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn focus_lost_event_stopping_roundtrips_sds_6_1() {
     let j = json!({"event": "focus.lost", "reason": "stopping"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn focus_gained_event_roundtrips_sds_6_1() {
     let j = json!({"event": "focus.gained"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -697,7 +697,7 @@ fn present_displayed_event_roundtrips_sds_6_1() {
         "seq": 100,
         "buffer_id": 0
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -708,7 +708,7 @@ fn buffer_release_displayed_reason_roundtrips_sds_5_1() {
         "seq": 100,
         "reason": "displayed"
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -719,7 +719,7 @@ fn buffer_release_dropped_reason_roundtrips_sds_5_1() {
         "seq": 100,
         "reason": "dropped"
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -730,7 +730,7 @@ fn buffer_release_replaced_reason_roundtrips_sds_5_1() {
         "seq": 100,
         "reason": "replaced"
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -741,7 +741,7 @@ fn buffer_release_focus_lost_reason_roundtrips_sds_5_1() {
         "seq": 100,
         "reason": "focus_lost"
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -752,7 +752,7 @@ fn buffer_release_blanked_reason_roundtrips_sds_5_12() {
         "seq": 100,
         "reason": "blanked"
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -768,7 +768,7 @@ fn param_changed_event_roundtrips_sds_5_4() {
         "key": "speed",
         "value": {"type": "int", "value": 5}
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -782,13 +782,13 @@ fn params_changed_event_roundtrips_sds_5_4() {
             "wrap":  {"type": "bool", "value": true}
         }
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn events_dropped_event_roundtrips_sds_5_3() {
     let j = json!({"event": "events.dropped", "since_seq": 1234});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -807,7 +807,7 @@ fn input_event_key_roundtrips_sds_6_1() {
         "value": 1,
         "player": 0
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -821,7 +821,7 @@ fn input_event_abs_roundtrips_sds_6_1() {
         "value": 17234,
         "player": 0
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -853,7 +853,7 @@ fn input_snapshot_event_roundtrips_sds_6_1() {
         "abs":  {"ABS_X": 16384, "ABS_Y": 16384},
         "player": 0
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -863,7 +863,7 @@ fn input_device_state_event_connected_roundtrips_sds_6_1() {
         "device": "8BitDo SN30 Pro",
         "connected": true
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -873,13 +873,13 @@ fn input_device_state_event_disconnected_roundtrips_sds_6_1() {
         "device": "8BitDo SN30 Pro",
         "connected": false
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn input_dropped_event_roundtrips_sds_6_1() {
     let j = json!({"event": "input.dropped", "since_seq": 120, "player": 0});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -896,7 +896,7 @@ fn input_player_connected_roundtrips() {
         "vid_pid": "2dc8:9018",
         "hw_id": "E4:17:D8:25:FB:42"
     });
-    let back = roundtrip_event(j);
+    let back = roundtrip_event(&j);
     match serde_json::from_value::<Event>(back).expect("decode") {
         // The stable per-device id (LEDCube/cube#28) round-trips and lets a
         // client map this physical pad to its slot even when a second
@@ -917,7 +917,7 @@ fn input_player_connected_without_vid_pid_roundtrips() {
         "player": 2,
         "name": "Generic Gamepad"
     });
-    let back = roundtrip_event(j);
+    let back = roundtrip_event(&j);
     match serde_json::from_value::<Event>(back).expect("decode") {
         Event::InputPlayerConnected {
             player,
@@ -936,7 +936,7 @@ fn input_player_connected_without_vid_pid_roundtrips() {
 #[test]
 fn input_player_disconnected_roundtrips() {
     let j = json!({"event": "input.player_disconnected", "player": 1});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -948,7 +948,7 @@ fn input_player_disconnected_roundtrips() {
 #[test]
 fn input_controllers_request_roundtrips() {
     let j = json!({"id": 70, "cmd": "input.controllers"});
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -957,7 +957,7 @@ fn input_bindings_get_request_global_roundtrips() {
         "id": 71, "cmd": "input.bindings.get",
         "vid_pid": "2dc8:9018", "scope": "global"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -967,7 +967,7 @@ fn input_bindings_get_request_game_scope_roundtrips() {
         "id": 72, "cmd": "input.bindings.get",
         "vid_pid": "2dc8:9018", "scope": {"game": "cubeboy"}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -977,7 +977,7 @@ fn input_bindings_set_request_roundtrips() {
         "id": 73, "cmd": "input.bindings.set",
         "vid_pid": "2dc8:9018", "physical": "A", "action": "B", "scope": "global"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -988,7 +988,7 @@ fn input_bindings_set_request_unbound_action_roundtrips() {
         "vid_pid": "2dc8:9018", "physical": "Y", "action": "unbound",
         "scope": {"game": "cubeboy"}
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -997,7 +997,7 @@ fn input_bindings_reset_request_roundtrips() {
         "id": 75, "cmd": "input.bindings.reset",
         "vid_pid": "2dc8:9018", "scope": "global"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -1009,7 +1009,7 @@ fn input_tuning_set_request_full_roundtrips() {
         "dead_zone": 0.25, "stick_dpad_threshold": 0.5, "invert": false,
         "scope": "global"
     });
-    roundtrip_request(j);
+    roundtrip_request(&j);
 }
 
 #[test]
@@ -1020,7 +1020,7 @@ fn input_tuning_set_request_partial_omits_unset() {
         "id": 77, "cmd": "input.tuning.set",
         "vid_pid": "2dc8:9018", "dead_zone": 0.25
     });
-    let back = roundtrip_request(j);
+    let back = roundtrip_request(&j);
     match serde_json::from_value::<Request>(back).expect("decode") {
         Request::InputTuningSet {
             dead_zone,
@@ -1053,7 +1053,7 @@ fn input_binding_changed_event_roundtrips() {
         "physical": "A",
         "action": "B"
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -1065,7 +1065,7 @@ fn input_binding_changed_reset_omits_physical_action() {
         "scope": {"game": "cubeboy"},
         "seq": 43
     });
-    let back = roundtrip_event(j);
+    let back = roundtrip_event(&j);
     match serde_json::from_value::<Event>(back).expect("decode") {
         Event::InputBindingChanged {
             physical,
@@ -1109,7 +1109,7 @@ fn input_tuning_changed_event_roundtrips() {
         "dead_zone": 0.25,
         "invert": true
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -1129,7 +1129,7 @@ fn input_sample_shape() {
     // The capture-tap event: {player, button, pressed}. button is a canonical
     // button config-name (the physical key the user pressed, pre-remap).
     let j = json!({"event": "input.capture", "player": 1, "button": "A", "pressed": true});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -1142,7 +1142,7 @@ fn input_sample_with_raw_triple_roundtrips() {
         "event": "input.capture", "player": 0, "button": "DPadDown", "pressed": true,
         "raw_type": "abs", "raw_code": "abs_hat0y", "raw_value": 255
     });
-    let back = roundtrip_event(j);
+    let back = roundtrip_event(&j);
     match serde_json::from_value::<Event>(back).expect("decode") {
         Event::InputSample {
             button,
@@ -1167,7 +1167,7 @@ fn input_sample_released_roundtrips() {
     let j = json!({
         "event": "input.capture", "player": 0, "button": "ShoulderLeft", "pressed": false
     });
-    let back = roundtrip_event(j);
+    let back = roundtrip_event(&j);
     match serde_json::from_value::<Event>(back).expect("decode") {
         Event::InputSample {
             player,
@@ -1260,19 +1260,19 @@ fn input_controllers_roster_entry_generic_no_vid_pid_roundtrips() {
 #[test]
 fn power_state_active_event_roundtrips_sds_5_12() {
     let j = json!({"event": "power.state", "state": "active"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn power_state_blanked_event_roundtrips_sds_5_12() {
     let j = json!({"event": "power.state", "state": "blanked"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
 fn config_reloaded_event_roundtrips_arch_7_0() {
     let j = json!({"event": "config.reloaded"});
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1287,7 +1287,7 @@ fn damage_roundtrips_sds_6_1() {
         w: 384,
         h: 64,
     };
-    let v = serde_json::to_value(&d).unwrap();
+    let v = serde_json::to_value(d).unwrap();
     assert_eq!(v, json!({"x": 0, "y": 1, "w": 384, "h": 64}));
     let d2: Damage = serde_json::from_value(v).unwrap();
     assert_eq!(d, d2);
@@ -1296,7 +1296,7 @@ fn damage_roundtrips_sds_6_1() {
 #[test]
 fn format_rgb565_roundtrips_sds_6_1() {
     let f = Format::Rgb565;
-    let v = serde_json::to_value(&f).unwrap();
+    let v = serde_json::to_value(f).unwrap();
     assert_eq!(v, json!("RGB565"));
     let f2: Format = serde_json::from_value(v).unwrap();
     assert_eq!(f, f2);
@@ -1405,32 +1405,32 @@ fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
     //   {"id":42,"cmd":"overlay.release","layer":7}
     //   {"event":"overlay.dismissed","layer":7,"reason":"released"}
     let acquire = json!({"id": 40, "cmd": "overlay.acquire", "z": 1, "input": "modal"});
-    roundtrip_request(acquire);
+    roundtrip_request(&acquire);
 
     // `z` (default 1) and `input` (default "none") are optional — the minimal
     // acquire omits both and must round-trip byte-for-byte (omitted fields stay
     // off the wire via skip_serializing_if).
     let acquire_min = json!({"id": 41, "cmd": "overlay.acquire"});
-    roundtrip_request(acquire_min);
+    roundtrip_request(&acquire_min);
 
     // `input:"none"` is the visual-only (no grab) variant.
     let acquire_none = json!({"id": 41, "cmd": "overlay.acquire", "input": "none"});
-    roundtrip_request(acquire_none);
+    roundtrip_request(&acquire_none);
 
     // The acquire OK response carries the assigned `{layer}` in `result`. The
     // result body is opaque JSON, so this already round-trips through `Response`
     // — it documents the wire shape GREEN's handler returns.
     let acquire_ok = json!({"id": 40, "ok": true, "result": {"layer": 7}});
-    roundtrip_response(acquire_ok);
+    roundtrip_response(&acquire_ok);
 
     // overlay.release names the layer to drop.
     let release = json!({"id": 42, "cmd": "overlay.release", "layer": 7});
-    roundtrip_request(release);
+    roundtrip_request(&release);
 
     // overlay.dismissed EVENT — all three SDS §6.1 reasons.
     for reason in ["released", "focus_lost", "blanked"] {
         let dismissed = json!({"event": "overlay.dismissed", "layer": 7, "reason": reason});
-        roundtrip_event(dismissed);
+        roundtrip_event(&dismissed);
     }
 }
 
@@ -1457,7 +1457,7 @@ fn overlay_dismiss_reason_unknown_is_forward_compatible() {
 
     // `Unknown` is a first-class wire citizen: it serializes to `"unknown"` and
     // round-trips through that token byte-for-byte.
-    roundtrip_event(json!({"event": "overlay.dismissed", "layer": 7, "reason": "unknown"}));
+    roundtrip_event(&json!({"event": "overlay.dismissed", "layer": 7, "reason": "unknown"}));
     let back: Event = serde_json::from_value(
         json!({"event": "overlay.dismissed", "layer": 1, "reason": "unknown"}),
     )
@@ -1496,7 +1496,7 @@ fn present_with_layer_field_roundtrips_sds_5_1() {
         "buffer_id": 2,
         "layer": 7
     });
-    roundtrip_request(to_overlay);
+    roundtrip_request(&to_overlay);
 
     // `layer:0` is the base layer (the v6 behaviour), and round-trips alongside
     // `damage`.
@@ -1508,7 +1508,7 @@ fn present_with_layer_field_roundtrips_sds_5_1() {
         "damage": {"x": 0, "y": 0, "w": 384, "h": 64},
         "layer": 0
     });
-    roundtrip_request(to_base);
+    roundtrip_request(&to_base);
 }
 
 #[test]
@@ -1518,7 +1518,7 @@ fn eperm_error_roundtrips_sds_5_13() {
     // the `EPERM` variant; it serializes to/from its uppercase name.
     let code: cube_proto::CubeErrno =
         serde_json::from_value(json!("EPERM")).expect("CubeErrno must decode the \"EPERM\" token");
-    assert_eq!(serde_json::to_value(&code).unwrap(), json!("EPERM"));
+    assert_eq!(serde_json::to_value(code).unwrap(), json!("EPERM"));
 
     // …and round-trips inside an `{ok:false,error:{…}}` response envelope.
     let j = json!({
@@ -1530,5 +1530,5 @@ fn eperm_error_roundtrips_sds_5_13() {
             "context": {}
         }
     });
-    roundtrip_response(j);
+    roundtrip_response(&j);
 }

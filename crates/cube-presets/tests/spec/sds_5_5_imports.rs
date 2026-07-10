@@ -7,6 +7,9 @@
 
 #![allow(dead_code)]
 
+// Shared helpers are included per test target via #[path]; each target is its
+// own crate, and within the `spec` target this is the only inclusion.
+#[allow(clippy::duplicate_mod)]
 #[path = "../common/mod.rs"]
 mod common;
 
@@ -84,19 +87,22 @@ fn sds_5_5_eversion_error_message_mentions_both_versions_sds_5_5() {
 /// name to flag any accidental introduction of a `Migrated` warning code.
 #[test]
 fn sds_5_5_no_migration_warning_variant_exists_sds_5_5() {
-    // If someone adds a `Migrated` variant the next line wouldn't compile
+    // If someone adds a `Migrated` variant this function no longer compiles
     // because the match would no longer be exhaustive — that's the contract.
-    let _exhaustive = |w: WarningCode| match w {
-        WarningCode::UnknownDropped => (),
-        WarningCode::Clamped => (),
-        WarningCode::ReadonlyDropped => (),
-        WarningCode::NonShareableDropped => (),
-    };
+    fn assert_exhaustive(w: WarningCode) {
+        match w {
+            WarningCode::UnknownDropped
+            | WarningCode::Clamped
+            | WarningCode::ReadonlyDropped
+            | WarningCode::NonShareableDropped => (),
+        }
+    }
+    let _ = assert_exhaustive;
 }
 
-/// SDS §5.5 preset format: `[meta]` (app, schema_version, preset_name,
+/// SDS §5.5 preset format: `[meta]` (app, `schema_version`, `preset_name`,
 /// optional author/description/created/version) + `[params]` (key=value).
-/// Round-trip a self-describing preset through cube_presets::PresetFile.
+/// Round-trip a self-describing preset through `cube_presets::PresetFile`.
 #[test]
 fn sds_5_5_preset_file_round_trips_through_toml_sds_5_5() {
     let body = r#"

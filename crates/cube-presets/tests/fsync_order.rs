@@ -49,7 +49,7 @@ fn assert_strict_order(calls: &[FsCall], stages: &[&dyn Fn(&FsCall) -> bool], la
     assert_eq!(stages.len(), labels.len());
     let mut last_idx: Option<usize> = None;
     for (stage, label) in stages.iter().zip(labels.iter()) {
-        let position = calls.iter().position(|c| stage(c)).unwrap_or_else(|| {
+        let position = calls.iter().position(stage).unwrap_or_else(|| {
             panic!("missing call stage `{label}` in recorded calls: {calls:?}")
         });
         if let Some(prev) = last_idx {

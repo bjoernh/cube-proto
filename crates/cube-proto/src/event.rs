@@ -119,6 +119,7 @@ impl ChangeSource {
     /// `true` when the source is the default placeholder. Used as
     /// `skip_serializing_if` on `ParamChanged`/`ParamsChanged` so the
     /// wire stays clean when the daemon has no specific attribution.
+    #[must_use] 
     pub fn is_unknown(&self) -> bool {
         matches!(self, Self::Unknown)
     }

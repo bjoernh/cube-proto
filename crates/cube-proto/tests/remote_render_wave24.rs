@@ -6,8 +6,8 @@
 //!
 //! Naming convention: `<thing>_roundtrips_sds_<sec>_<sub>`. SDS sections:
 //! - `_sds_6_1_` — JSON control-message extensions (hello.frame, register).
-//! - `_sds_6_2_` — Binary frame stream (FrameHeader, present.dropped,
-//!   remote.frames_dropped, payload size, session token).
+//! - `_sds_6_2_` — Binary frame stream (`FrameHeader`, present.dropped,
+//!   `remote.frames_dropped`, payload size, session token).
 //! - `_sds_5_11_` — Client stats (`client.stats`).
 
 use base64::Engine as _;
@@ -24,25 +24,25 @@ use cube_proto::{Event, REMOTE_FRAME_PAYLOAD_BYTES, Request};
 // helpers (mirrors tests/wire_roundtrip.rs)
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn roundtrip_request(j: Value) -> Value {
+fn roundtrip_request(j: &Value) -> Value {
     let req: Request = serde_json::from_value(j.clone()).expect("Request decode");
     let back = serde_json::to_value(&req).expect("Request encode");
-    assert_eq!(back, j, "Request did not round-trip");
+    assert_eq!(&back, j, "Request did not round-trip");
     let bytes = serde_json::to_vec(&req).expect("Request to_vec");
     let req2: Request = serde_json::from_slice(&bytes).expect("Request from_slice");
     let back2 = serde_json::to_value(&req2).expect("Request encode #2");
-    assert_eq!(back2, j, "Request bytes round-trip mismatch");
+    assert_eq!(&back2, j, "Request bytes round-trip mismatch");
     back
 }
 
-fn roundtrip_event(j: Value) -> Value {
+fn roundtrip_event(j: &Value) -> Value {
     let ev: Event = serde_json::from_value(j.clone()).expect("Event decode");
     let back = serde_json::to_value(&ev).expect("Event encode");
-    assert_eq!(back, j, "Event did not round-trip");
+    assert_eq!(&back, j, "Event did not round-trip");
     let bytes = serde_json::to_vec(&ev).expect("Event to_vec");
     let ev2: Event = serde_json::from_slice(&bytes).expect("Event from_slice");
     let back2 = serde_json::to_value(&ev2).expect("Event encode #2");
-    assert_eq!(back2, j, "Event bytes round-trip mismatch");
+    assert_eq!(&back2, j, "Event bytes round-trip mismatch");
     back
 }
 
@@ -79,7 +79,7 @@ fn present_dropped_focus_lost_roundtrips_sds_6_2_present() {
         "seq": 44,
         "reason": "focus_lost",
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn present_dropped_blanked_roundtrips_sds_6_2_present() {
         "seq": 45,
         "reason": "blanked",
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 /// SDS v6 §6.2 pins the **remote `present.dropped`** reason vocabulary to
@@ -107,7 +107,7 @@ fn present_dropped_blanked_roundtrips_sds_6_2_present() {
 fn present_dropped_v6_reason_vocabulary_is_exactly_three_values_sds_6_2() {
     for reason in ["too_late", "fragmented", "focus_lost"] {
         let j = json!({"event": "present.dropped", "seq": 1, "reason": reason});
-        roundtrip_event(j);
+        roundtrip_event(&j);
     }
 }
 
@@ -123,7 +123,7 @@ fn remote_frames_dropped_roundtrips_sds_6_2_counters() {
         "dropped": 17,
         "since_seq": 100,
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ fn client_stats_with_latency_roundtrips_sds_5_11_stats() {
         "last_seq": 999,
         "video_latency_us": 18_500,
     });
-    roundtrip_event(j);
+    roundtrip_event(&j);
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn client_stats_without_latency_roundtrips_sds_5_11_stats() {
         "last_seq": 1,
     });
     // Round-trip and additionally assert the key is omitted when None.
-    let back = roundtrip_event(j.clone());
+    let back = roundtrip_event(&j);
     let obj = back.as_object().expect("event is a JSON object");
     assert!(
         !obj.contains_key("video_latency_us"),
@@ -171,7 +171,7 @@ fn register_without_session_token_roundtrips_sds_6_1_register() {
         "name": "snake",
         "mode": "dev",
     });
-    let back = roundtrip_request(j.clone());
+    let back = roundtrip_request(&j);
     let obj = back.as_object().expect("request is a JSON object");
     assert!(
         !obj.contains_key("session_token"),
@@ -188,7 +188,7 @@ fn register_with_session_token_roundtrips_sds_6_1_register() {
         "mode": "dev",
         "session_token": "abcdefghijklmnopqrstuvwxyz012345",
     });
-    let back = roundtrip_request(j.clone());
+    let back = roundtrip_request(&j);
     assert_eq!(
         back.get("session_token").and_then(Value::as_str),
         Some("abcdefghijklmnopqrstuvwxyz012345"),
@@ -428,16 +428,7 @@ fn handshake_datagram_rejects_bad_magic_sds_6_2() {
 #[test]
 fn handshake_datagram_rejects_nonzero_flags_sds_6_2() {
     let token = [0u8; 16];
-    let mut _hd = HandshakeDatagram {
-        magic: HANDSHAKE_MAGIC,
-        flags: 1,
-        session_token: token,
-        format_tag: 1,
-        width: 384,
-        height: 64,
-        expected_payload_bytes: 49152,
-    };
-    // Encode with flags=1, then decode should reject
+    // Hand-encode a datagram with flags=1; decode should reject it.
     let mut bytes = [0u8; 36];
     bytes[0..4].copy_from_slice(&HANDSHAKE_MAGIC.to_le_bytes());
     bytes[4..8].copy_from_slice(&1u32.to_le_bytes());

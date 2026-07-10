@@ -79,13 +79,13 @@ fn import_final_params_reflects_clamps_and_drops_sds_5_5() {
     assert_eq!(report.final_params.get("speed"), Some(&ParamValue::Int(10)));
 
     // Dropped:
-    assert!(report.final_params.get("gamma").is_none(), "gamma must be dropped (readonly)");
+    assert!(!report.final_params.contains_key("gamma"), "gamma must be dropped (readonly)");
     assert!(
-        report.final_params.get("device_id").is_none(),
+        !report.final_params.contains_key("device_id"),
         "device_id must be dropped (non-shareable)",
     );
     assert!(
-        report.final_params.get("old_param").is_none(),
+        !report.final_params.contains_key("old_param"),
         "old_param must be dropped (unknown)",
     );
 }
