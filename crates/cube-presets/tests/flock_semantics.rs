@@ -9,15 +9,13 @@ mod common;
 
 use std::collections::BTreeMap;
 use std::fs::OpenOptions;
-use std::os::fd::AsRawFd;
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
 
 use cube_presets::{FsCall, PresetFile, PresetMeta, RecordingFsOps};
 use cube_proto::ParamValue;
-use nix::errno::Errno;
-use nix::fcntl::{FlockArg, flock};
+use nix::fcntl::{Flock, FlockArg};
 
 fn preset_file() -> PresetFile {
     let mut params: BTreeMap<String, ParamValue> = BTreeMap::new();
@@ -78,9 +76,13 @@ fn flock_blocks_concurrent_saver_sds_5_6() {
         .write(true)
         .open(&lock_path)
         .expect("open .lock for probe");
-    let err = flock(probe.as_raw_fd(), FlockArg::LockExclusiveNonblock)
+    let (probe, err) = Flock::lock(probe, FlockArg::LockExclusiveNonblock)
         .expect_err("expected flock to fail with EWOULDBLOCK while save holds the lock");
-    assert_eq!(err, Errno::EWOULDBLOCK, "got errno {err:?}");
+    assert_eq!(
+        err,
+        nix::errno::Errno::EWOULDBLOCK,
+        "got errno {err:?}"
+    );
     drop(probe);
 
     // Release the barrier; save() proceeds and unlocks.
@@ -93,7 +95,8 @@ fn flock_blocks_concurrent_saver_sds_5_6() {
         .write(true)
         .open(&lock_path)
         .expect("re-open .lock");
-    flock(probe2.as_raw_fd(), FlockArg::LockExclusiveNonblock)
+    let locked = Flock::lock(probe2, FlockArg::LockExclusiveNonblock)
+        .map_err(|(_, e)| e)
         .expect("flock must succeed after save released the lock");
-    flock(probe2.as_raw_fd(), FlockArg::Unlock).unwrap();
+    locked.unlock().map_err(|(_, e)| e).unwrap();
 }

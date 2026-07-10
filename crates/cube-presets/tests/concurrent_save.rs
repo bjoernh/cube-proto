@@ -81,6 +81,8 @@ fn eight_threads_save_distinct_presets_concurrently_sds_5_6() {
         );
     }
     // We expect exactly N `.toml` files in the user preset dir.
+    // The preset store writes exact lowercase extensions; exact comparison intended.
+    #[expect(clippy::case_sensitive_file_extension_comparisons)]
     let toml_count = entries.iter().filter(|e| e.ends_with(".toml")).count();
     assert_eq!(toml_count, N as usize, "got dir contents: {entries:?}");
 }

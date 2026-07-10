@@ -21,7 +21,7 @@ proptest! {
     #[test]
     fn damage_roundtrip_sds_6_1(x in any::<u32>(), y in any::<u32>(), w in any::<u32>(), h in any::<u32>()) {
         let d = Damage { x, y, w, h };
-        let v = serde_json::to_value(&d).unwrap();
+        let v = serde_json::to_value(d).unwrap();
         let d2: Damage = serde_json::from_value(v).unwrap();
         prop_assert_eq!(d, d2);
     }
@@ -29,7 +29,7 @@ proptest! {
     #[test]
     fn color_rgb_roundtrip_sds_5_4(r in any::<u8>(), g in any::<u8>(), b in any::<u8>()) {
         let c = Color::from_rgba(r, g, b, 0xFF);
-        let v = serde_json::to_value(&c).unwrap();
+        let v = serde_json::to_value(c).unwrap();
         let expected = json!(format!("#{:02X}{:02X}{:02X}", r, g, b));
         prop_assert_eq!(v.clone(), expected);
         let c2: Color = serde_json::from_value(v).unwrap();
@@ -39,7 +39,7 @@ proptest! {
     #[test]
     fn color_rgba_roundtrip_sds_5_4(r in any::<u8>(), g in any::<u8>(), b in any::<u8>(), a in 0u8..=0xFEu8) {
         let c = Color::from_rgba(r, g, b, a);
-        let v = serde_json::to_value(&c).unwrap();
+        let v = serde_json::to_value(c).unwrap();
         let expected = json!(format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a));
         prop_assert_eq!(v.clone(), expected);
         let c2: Color = serde_json::from_value(v).unwrap();
@@ -50,7 +50,7 @@ proptest! {
     fn vec2_roundtrip_sds_5_4(x in prop::num::f32::NORMAL | prop::num::f32::POSITIVE | prop::num::f32::NEGATIVE | prop::num::f32::ZERO,
                               y in prop::num::f32::NORMAL | prop::num::f32::POSITIVE | prop::num::f32::NEGATIVE | prop::num::f32::ZERO) {
         let v2 = Vec2 { x, y };
-        let v = serde_json::to_value(&v2).unwrap();
+        let v = serde_json::to_value(v2).unwrap();
         let back: Vec2 = serde_json::from_value(v).unwrap();
         prop_assert_eq!(v2, back);
     }
@@ -60,7 +60,7 @@ proptest! {
                               y in prop::num::f32::NORMAL | prop::num::f32::POSITIVE | prop::num::f32::NEGATIVE | prop::num::f32::ZERO,
                               z in prop::num::f32::NORMAL | prop::num::f32::POSITIVE | prop::num::f32::NEGATIVE | prop::num::f32::ZERO) {
         let v3 = Vec3 { x, y, z };
-        let v = serde_json::to_value(&v3).unwrap();
+        let v = serde_json::to_value(v3).unwrap();
         let back: Vec3 = serde_json::from_value(v).unwrap();
         prop_assert_eq!(v3, back);
     }

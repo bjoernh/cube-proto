@@ -57,7 +57,7 @@ fn list_builtin_only_when_no_user_dir_present_sds_5_5() {
     let store = cube_presets::PresetStore::new(
         system_root,
         user_root,
-        cube_presets::RealFsOps::default(),
+        cube_presets::RealFsOps,
     );
 
     let mut listed = store.list("x").expect("list must succeed");
@@ -79,7 +79,7 @@ fn list_user_only_when_no_builtin_dir_present_sds_5_5() {
     let store = cube_presets::PresetStore::new(
         system_root,
         user_root,
-        cube_presets::RealFsOps::default(),
+        cube_presets::RealFsOps,
     );
 
     let listed = store.list("x").expect("list must succeed");
@@ -102,7 +102,7 @@ fn list_ignores_non_toml_non_tombstone_files_sds_5_5() {
     let store = cube_presets::PresetStore::new(
         system_root,
         user_root,
-        cube_presets::RealFsOps::default(),
+        cube_presets::RealFsOps,
     );
 
     let listed = store.list("x").expect("list must succeed");

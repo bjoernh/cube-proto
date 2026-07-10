@@ -206,6 +206,7 @@ impl SchemaBuilder {
     }
 
     /// Finish building the schema.
+    #[must_use] 
     pub fn build(self) -> Schema {
         Schema {
             app: self.app,

@@ -94,7 +94,7 @@ impl Capabilities {
 /// with the strict [`TransitionKind::from_wire`]; clients that want to degrade
 /// deliberately read the daemon's supported set from
 /// [`Capabilities::transition_kinds`]. Serialization is unchanged: each known
-/// variant encodes as its snake_case token.
+/// variant encodes as its `snake_case` token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransitionKind {
@@ -128,7 +128,7 @@ impl TransitionKind {
         TransitionKind::Push,
     ];
 
-    /// The snake_case wire token for this kind (matches the `Serialize` output).
+    /// The `snake_case` wire token for this kind (matches the `Serialize` output).
     #[must_use]
     pub fn as_wire(self) -> &'static str {
         match self {
@@ -151,7 +151,7 @@ impl TransitionKind {
     }
 }
 
-/// Lenient decode (SDS v7 §5.13, D8): a known snake_case token maps to its
+/// Lenient decode (SDS v7 §5.13, D8): a known `snake_case` token maps to its
 /// variant; **any other string** maps to [`TransitionKind::Cut`] so an unknown
 /// kind never hard-fails the enclosing request. Non-string JSON is still a type
 /// error.

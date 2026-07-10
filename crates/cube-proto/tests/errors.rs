@@ -1,4 +1,4 @@
-//! Coverage for the 14 CubeErrno variants (SDS §5.3) and for the CubeError
+//! Coverage for the 14 `CubeErrno` variants (SDS §5.3) and for the `CubeError`
 //! body that carries them in `Response.error`.
 
 use std::collections::BTreeMap;

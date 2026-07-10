@@ -20,7 +20,7 @@ fn delete_builtin_writes_tombstone_and_hides_it_sds_5_5() {
     let store = cube_presets::PresetStore::new(
         system_root,
         user_root.clone(),
-        cube_presets::RealFsOps::default(),
+        cube_presets::RealFsOps,
     );
 
     // Before: built-in `a` shows up in the list.
@@ -50,7 +50,7 @@ fn delete_user_preset_removes_file_no_tombstone_sds_5_5() {
     let store = cube_presets::PresetStore::new(
         system_root,
         user_root.clone(),
-        cube_presets::RealFsOps::default(),
+        cube_presets::RealFsOps,
     );
 
     store.delete("x", "c").expect("delete must succeed");
@@ -85,14 +85,14 @@ fn save_after_tombstone_removes_tombstone_and_restores_preset_sds_5_5() {
     let store = cube_presets::PresetStore::new(
         system_root,
         user_root.clone(),
-        cube_presets::RealFsOps::default(),
+        cube_presets::RealFsOps,
     );
     let schema = common::schema_minimal("x", 1);
 
     // Empty before re-save.
     assert!(store.list("x").unwrap().is_empty());
 
-    let mut params: std::collections::BTreeMap<String, cube_proto::ParamValue> = Default::default();
+    let mut params = std::collections::BTreeMap::<String, cube_proto::ParamValue>::new();
     params.insert("speed".to_string(), cube_proto::ParamValue::Int(8));
     let pf = cube_presets::PresetFile {
         meta: cube_presets::PresetMeta {

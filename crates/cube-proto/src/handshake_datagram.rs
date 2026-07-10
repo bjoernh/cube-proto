@@ -41,6 +41,7 @@ pub struct HandshakeDatagram {
 
 impl HandshakeDatagram {
     /// Encode to a 36-byte array (all fields little-endian).
+    #[must_use] 
     pub fn encode(self) -> [u8; HANDSHAKE_BYTES] {
         let mut buf = [0u8; HANDSHAKE_BYTES];
         buf[0..4].copy_from_slice(&self.magic.to_le_bytes());
@@ -53,8 +54,8 @@ impl HandshakeDatagram {
         buf
     }
 
-    /// Decode from a byte slice. Validates magic, flags, format_tag,
-    /// dimensions, and expected_payload_bytes.
+    /// Decode from a byte slice. Validates magic, flags, `format_tag`,
+    /// dimensions, and `expected_payload_bytes`.
     pub fn decode(bytes: &[u8]) -> Result<Self, HandshakeError> {
         if bytes.len() < HANDSHAKE_BYTES {
             return Err(HandshakeError::ShortBuffer);

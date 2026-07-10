@@ -336,6 +336,7 @@ pub struct SystemConfigHandle {
 
 impl SystemConfigHandle {
     /// Create a new handle pre-loaded with the given config.
+    #[must_use] 
     pub fn new(cfg: SystemConfig) -> Self {
         Self {
             inner: ArcSwap::from_pointee(cfg),

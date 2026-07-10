@@ -1,7 +1,7 @@
 //! Tests for `cube_config::manifest::Manifest` parsing (SDS §7.2).
 //!
 //! SDS §7.2 defines the `manifest.toml` shape:
-//!   [app]      name / display_name / version / category / icon
+//!   [app]      name / `display_name` / version / category / icon
 //!   [requires] libcube version req / inputs / sensors
 //!
 //! App `name` reuses the same regex as preset names (SDS §5.5):
