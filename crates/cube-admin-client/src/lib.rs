@@ -14,13 +14,22 @@
 //!   [`ControlClient::subscribe`] (open-ended: ack + live event stream) and
 //!   [`ControlClient::subscribe_collect`] (bounded: drain exactly the batch,
 //!   ended by `subscription.ended`).
+//! - **Argument parsing** (ARCH §8.5): [`parse_param_value`] /
+//!   [`parse_param_value_auto`] / [`parse_scope`] turn CLI/tool argument
+//!   strings into typed [`cube_proto`] values, shared by `cubectl` and
+//!   `cube-mcp` so neither re-derives the value grammar.
 
 mod client;
 mod error;
+mod parse;
 mod subscribe;
 
 pub use client::{
     CLIENT_PROTOCOL_VERSION, ControlClient, DEFAULT_ADMIN_SOCKET, ParamSnapshot, resolve_host,
 };
 pub use error::ClientError;
+pub use parse::{
+    ScopeParseError, SetType, ValueParseError, parse_kv, parse_param_value, parse_param_value_auto,
+    parse_scope,
+};
 pub use subscribe::SubscribeOptions;
