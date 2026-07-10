@@ -435,25 +435,41 @@ pub enum Event {
     },
 
     // ── Remote rendering ─────────────────────────────────────────────────────
+    /// `event_seq` is the SDS v6 §5.13 per-connection reliable-event stamp
+    /// (workstream D): remote-render events now ride the daemon-wide event hub
+    /// and are delivered through each subscriber's outbox (the `remote_render`
+    /// class), so a subscriber orders them against the rest of its reliable
+    /// stream. Omitted on the wire (and `None`) when unstamped — a v5-shaped
+    /// `{"event":"frame_stream.bound",…}` with no `event_seq` still round-trips.
     #[serde(rename = "frame_stream.bound")]
     FrameStreamBound {
         max_inflight: u32,
         policy: String,
         expected_payload_bytes: u32,
         mtu_hint: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
     },
 
+    /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (workstream D); see
+    /// [`Event::FrameStreamBound`]. Omitted when `None`.
     #[serde(rename = "present.dropped")]
     PresentDropped {
         seq: u64,
         reason: PresentDroppedReason,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
     },
 
+    /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (workstream D); see
+    /// [`Event::FrameStreamBound`]. Omitted when `None`.
     #[serde(rename = "remote.frames_dropped")]
     RemoteFramesDropped {
         client: String,
         dropped: u64,
         since_seq: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
     },
 
     #[serde(rename = "client.stats")]
