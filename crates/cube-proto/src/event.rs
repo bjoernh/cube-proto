@@ -111,7 +111,17 @@ pub enum ChangeSource {
     Midi,
     Preset,
     App,
+    /// The system param-overlay menu wrote this value (cube-system#24). Serializes
+    /// to `"menu"`; the same live-and-persist store path as `cubectl`/`midi`, so
+    /// the menu's own writes are attributable and echo-suppressible.
+    Menu,
+    /// A source token this build does not recognize — a forward-compat catch-all
+    /// (`#[serde(other)]`) so a future `cubed` `source` value (e.g. a source added
+    /// after this SDK was built) is always decodable into the typed enum rather
+    /// than a strict-deserialization hard error. Also the default when the wire
+    /// omits `source` entirely. Serializes to `"unknown"`.
     #[default]
+    #[serde(other)]
     Unknown,
 }
 
@@ -480,4 +490,61 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         video_latency_us: Option<u64>,
     },
+}
+
+#[cfg(test)]
+mod change_source_tests {
+    use super::ChangeSource;
+
+    /// `Menu` serializes to the wire string `"menu"` and round-trips back.
+    #[test]
+    fn menu_serializes_to_menu() {
+        let json = serde_json::to_string(&ChangeSource::Menu).unwrap();
+        assert_eq!(json, "\"menu\"");
+        let back: ChangeSource = serde_json::from_str("\"menu\"").unwrap();
+        assert_eq!(back, ChangeSource::Menu);
+    }
+
+    /// Every known source round-trips through its lower-case wire token.
+    #[test]
+    fn known_sources_roundtrip() {
+        for (src, wire) in [
+            (ChangeSource::Cubectl, "\"cubectl\""),
+            (ChangeSource::Midi, "\"midi\""),
+            (ChangeSource::Preset, "\"preset\""),
+            (ChangeSource::App, "\"app\""),
+            (ChangeSource::Menu, "\"menu\""),
+            (ChangeSource::Unknown, "\"unknown\""),
+        ] {
+            assert_eq!(serde_json::to_string(&src).unwrap(), wire, "serialize {src:?}");
+            assert_eq!(
+                serde_json::from_str::<ChangeSource>(wire).unwrap(),
+                src,
+                "deserialize {wire}"
+            );
+        }
+    }
+
+    /// An unknown future token (a `source` added after this build) decodes to
+    /// `Unknown` via `#[serde(other)]` instead of a hard error.
+    #[test]
+    fn unknown_future_source_decodes_to_unknown() {
+        let back: ChangeSource = serde_json::from_str("\"gizmo\"").unwrap();
+        assert_eq!(back, ChangeSource::Unknown);
+        assert!(back.is_unknown());
+    }
+
+    /// An absent `source` field defaults to `Unknown` (forward-compat with
+    /// daemons that omit it).
+    #[test]
+    fn absent_source_defaults_to_unknown() {
+        #[derive(serde::Deserialize)]
+        struct Holder {
+            #[serde(default)]
+            source: ChangeSource,
+        }
+        let h: Holder = serde_json::from_str("{}").unwrap();
+        assert_eq!(h.source, ChangeSource::Unknown);
+        assert!(h.source.is_unknown());
+    }
 }
