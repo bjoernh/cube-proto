@@ -721,6 +721,59 @@ fn app_stopped_event_with_frame_stream_idle_reason_roundtrips_sds_6_2() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Events: install.progress, install.complete  (App-Store M1)
+//
+// Streamed while an `apt.install` / `apt.upgrade` job runs. `app` is the deb
+// package name. `install.progress.line` is one line of apt output; `.ok` on
+// install.complete reports success/failure. `event_seq` follows the reliable-
+// event convention: `Option<u64>`, omitted on the wire when absent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn install_progress_event_roundtrips_appstore() {
+    let j = json!({
+        "event": "install.progress",
+        "app": "cube-app-voxel-sand",
+        "line": "Unpacking cube-app-voxel-sand (1.2.3) ..."
+    });
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_progress_event_with_event_seq_roundtrips_appstore() {
+    let j = json!({
+        "event": "install.progress",
+        "app": "cube-app-voxel-sand",
+        "line": "Setting up cube-app-voxel-sand (1.2.3) ...",
+        "event_seq": 42
+    });
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_complete_event_ok_roundtrips_appstore() {
+    let j = json!({"event": "install.complete", "app": "cube-app-voxel-sand", "ok": true});
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_complete_event_failure_roundtrips_appstore() {
+    let j = json!({"event": "install.complete", "app": "cube-app-voxel-sand", "ok": false});
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_complete_event_with_event_seq_roundtrips_appstore() {
+    let j = json!({
+        "event": "install.complete",
+        "app": "cube-app-voxel-sand",
+        "ok": true,
+        "event_seq": 43
+    });
+    roundtrip_event(&j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Events: focus.lost, focus.gained  (SDS v6 §5.2, §6.1 — reliable-tier)
 // ─────────────────────────────────────────────────────────────────────────────
 
