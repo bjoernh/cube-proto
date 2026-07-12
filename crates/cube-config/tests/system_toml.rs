@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use cube_config::{ConfigError, load_system};
+use cube_config::{AppsConfig, ConfigError, load_system};
 
 fn fixture(name: &str) -> PathBuf {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -311,6 +311,88 @@ fn system_toml_apps_max_resident_zero_is_error_sds_6_4() {
         }
         other => panic!("expected ConfigError::Parse, got {other:?}"),
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App-store (M1): `[apps] allow_remote_install` + `preview_timeout_secs`
+//
+// Two new `[apps]` keys, both with serde defaults so existing `system.toml`
+// files (and an `[apps]` table that only sets `max_resident`) keep parsing:
+//   - `allow_remote_install` (bool, default `true`)  — gates the apt_install verb
+//   - `preview_timeout_secs`  (u32,  default `15`)    — on-cube preview auto-hide
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// App-store M1: a config with no `[apps]` table defaults the two new keys to
+/// `allow_remote_install = true` and `preview_timeout_secs = 15`.
+#[test]
+fn system_toml_apps_install_preview_default_when_apps_absent_appstore() {
+    let path = fixture("system_full.toml");
+    let (cfg, report) = load_system(&path).expect("fixture without [apps] must parse");
+    assert!(
+        cfg.apps.allow_remote_install,
+        "allow_remote_install must default to true"
+    );
+    assert_eq!(
+        cfg.apps.preview_timeout_secs, 15,
+        "preview_timeout_secs must default to 15"
+    );
+    assert!(report.errors.is_empty());
+}
+
+/// App-store M1: an `[apps]` table that sets only `max_resident` still defaults
+/// the two new keys — proving they are independently `#[serde(default)]`.
+#[test]
+fn system_toml_apps_install_preview_default_when_keys_omitted_appstore() {
+    let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
+    let body = format!("{base}\n[apps]\nmax_resident = 2\n");
+    let p = write(&body);
+
+    let (cfg, _report) = load_system(&p).expect("[apps] with only max_resident must parse");
+    assert_eq!(cfg.apps.max_resident, 2);
+    assert!(cfg.apps.allow_remote_install, "omitted key defaults to true");
+    assert_eq!(cfg.apps.preview_timeout_secs, 15, "omitted key defaults to 15");
+}
+
+/// App-store M1: explicit `allow_remote_install` / `preview_timeout_secs` values
+/// are honoured, alongside `max_resident`.
+#[test]
+fn system_toml_apps_install_preview_explicit_values_appstore() {
+    let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
+    let body = format!(
+        "{base}\n[apps]\nmax_resident = 3\nallow_remote_install = false\npreview_timeout_secs = 30\n"
+    );
+    let p = write(&body);
+
+    let (cfg, report) = load_system(&p).expect("explicit [apps] keys must parse");
+    assert_eq!(cfg.apps.max_resident, 3);
+    assert!(!cfg.apps.allow_remote_install, "explicit false must be honoured");
+    assert_eq!(cfg.apps.preview_timeout_secs, 30, "explicit 30 must be honoured");
+    assert!(report.errors.is_empty());
+}
+
+/// App-store M1: `AppsConfig` serde round-trips — serialize non-default values,
+/// parse them back, get the same values (the struct is `#[serde(default)]`).
+#[test]
+fn apps_config_serde_round_trip_appstore() {
+    let original = AppsConfig {
+        max_resident: 4,
+        allow_remote_install: false,
+        preview_timeout_secs: 42,
+    };
+    let text = toml::to_string(&original).expect("AppsConfig must serialize");
+    let parsed: AppsConfig = toml::from_str(&text).expect("AppsConfig must deserialize");
+    assert_eq!(parsed.max_resident, original.max_resident);
+    assert_eq!(parsed.allow_remote_install, original.allow_remote_install);
+    assert_eq!(parsed.preview_timeout_secs, original.preview_timeout_secs);
+}
+
+/// App-store M1: `AppsConfig::default()` yields all three documented defaults.
+#[test]
+fn apps_config_default_values_appstore() {
+    let d = AppsConfig::default();
+    assert_eq!(d.max_resident, 1);
+    assert!(d.allow_remote_install);
+    assert_eq!(d.preview_timeout_secs, 15);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
