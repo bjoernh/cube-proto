@@ -222,11 +222,20 @@ pub struct AppsConfig {
     /// non-launcher app sessions. Default `1`, which reproduces v5's
     /// implicit single-foreground/eviction behaviour. Must be `>= 1`.
     pub max_resident: u32,
+    /// Gates the remote `apt_install` verb (App Store remote install).
+    /// Default `true`.
+    pub allow_remote_install: bool,
+    /// On-cube app-preview auto-hide timeout, in seconds. Default `15`.
+    pub preview_timeout_secs: u32,
 }
 
 impl Default for AppsConfig {
     fn default() -> Self {
-        Self { max_resident: 1 }
+        Self {
+            max_resident: 1,
+            allow_remote_install: true,
+            preview_timeout_secs: 15,
+        }
     }
 }
 

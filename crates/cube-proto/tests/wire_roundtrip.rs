@@ -420,6 +420,68 @@ fn power_wake_request_roundtrips_sds_5_12() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// App-Store (M1): apt.install, apt.upgrade, preview.asset  (admin verbs)
+//
+// New admin-socket verbs. Wire cmd tags follow the codebase's dotted
+// convention (like power.blank / overlay.text). `version` (install/upgrade)
+// and `timeout_secs` (preview) are OPTIONAL — omitted round-trips byte-for-byte
+// (skip_serializing_if). Per D2, preview.asset carries a path STRING, never
+// bytes. RED: the enum is `deny_unknown_fields` + tag-based, so these literals
+// fail to decode until the variants exist.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn apt_install_request_roundtrips_appstore() {
+    // Pinned version.
+    let j = json!({"id": 70, "cmd": "apt.install", "package": "cube-app-voxel-sand", "version": "1.2.3"});
+    roundtrip_request(&j);
+}
+
+#[test]
+fn apt_install_request_without_version_roundtrips_appstore() {
+    // No version pin → install latest; `version` must stay off the wire.
+    let j = json!({"id": 71, "cmd": "apt.install", "package": "cube-app-voxel-sand"});
+    roundtrip_request(&j);
+}
+
+#[test]
+fn apt_upgrade_request_roundtrips_appstore() {
+    let j = json!({"id": 72, "cmd": "apt.upgrade", "package": "cube-app-tron3d", "version": "0.4.1"});
+    roundtrip_request(&j);
+}
+
+#[test]
+fn apt_upgrade_request_without_version_roundtrips_appstore() {
+    let j = json!({"id": 73, "cmd": "apt.upgrade", "package": "cube-app-tron3d"});
+    roundtrip_request(&j);
+}
+
+#[test]
+fn preview_asset_request_roundtrips_appstore() {
+    // D2: path handoff — the verb carries only a filesystem path plus an
+    // optional per-request timeout override.
+    let j = json!({
+        "id": 74,
+        "cmd": "preview.asset",
+        "path": "/run/cube/store-previews/voxel-sand.gif",
+        "timeout_secs": 20
+    });
+    roundtrip_request(&j);
+}
+
+#[test]
+fn preview_asset_request_without_timeout_roundtrips_appstore() {
+    // Omitted `timeout_secs` → cubed falls back to [apps] preview_timeout_secs;
+    // must stay off the wire.
+    let j = json!({
+        "id": 75,
+        "cmd": "preview.asset",
+        "path": "/run/cube/store-previews/tron3d.gif"
+    });
+    roundtrip_request(&j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Transitions on launch / focus  (SDS v7 §5.13, §6.1)
 //
 // W1 adds an OPTIONAL `transition: { kind: "cut"|"crossfade", duration_ms?: u32 }`
@@ -655,6 +717,59 @@ fn app_stopped_event_with_frame_stream_idle_reason_roundtrips_sds_6_2() {
     // SDS v6 §6.2 / item 2.7: the `frame_stream_idle` teardown reason added
     // to the `app.stopped` wire vocabulary.
     let j = json!({"event": "app.stopped", "app": "snake", "reason": "frame_stream_idle"});
+    roundtrip_event(&j);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Events: install.progress, install.complete  (App-Store M1)
+//
+// Streamed while an `apt.install` / `apt.upgrade` job runs. `app` is the deb
+// package name. `install.progress.line` is one line of apt output; `.ok` on
+// install.complete reports success/failure. `event_seq` follows the reliable-
+// event convention: `Option<u64>`, omitted on the wire when absent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn install_progress_event_roundtrips_appstore() {
+    let j = json!({
+        "event": "install.progress",
+        "app": "cube-app-voxel-sand",
+        "line": "Unpacking cube-app-voxel-sand (1.2.3) ..."
+    });
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_progress_event_with_event_seq_roundtrips_appstore() {
+    let j = json!({
+        "event": "install.progress",
+        "app": "cube-app-voxel-sand",
+        "line": "Setting up cube-app-voxel-sand (1.2.3) ...",
+        "event_seq": 42
+    });
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_complete_event_ok_roundtrips_appstore() {
+    let j = json!({"event": "install.complete", "app": "cube-app-voxel-sand", "ok": true});
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_complete_event_failure_roundtrips_appstore() {
+    let j = json!({"event": "install.complete", "app": "cube-app-voxel-sand", "ok": false});
+    roundtrip_event(&j);
+}
+
+#[test]
+fn install_complete_event_with_event_seq_roundtrips_appstore() {
+    let j = json!({
+        "event": "install.complete",
+        "app": "cube-app-voxel-sand",
+        "ok": true,
+        "event_seq": 43
+    });
     roundtrip_event(&j);
 }
 

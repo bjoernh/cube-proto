@@ -214,6 +214,28 @@ pub enum Event {
     #[serde(rename = "focus.gained")]
     FocusGained,
 
+    // ── App-Store install progress (App-Store M1) ─────────────────────────────
+    /// One line of apt output while an `apt.install` / `apt.upgrade` job runs.
+    /// `app` is the deb package name. `event_seq` is the SDS v6 §5.13 reliable-
+    /// event stamp (omitted on the wire when `None`).
+    #[serde(rename = "install.progress")]
+    InstallProgress {
+        app: String,
+        line: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
+    },
+
+    /// Terminal result of an `apt.install` / `apt.upgrade` job (App-Store M1).
+    /// `ok` reports success/failure. `event_seq` as above.
+    #[serde(rename = "install.complete")]
+    InstallComplete {
+        app: String,
+        ok: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        event_seq: Option<u64>,
+    },
+
     // ── Frame / buffer ───────────────────────────────────────────────────────
     #[serde(rename = "present.displayed")]
     PresentDisplayed { seq: u64, buffer_id: u32 },

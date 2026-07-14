@@ -420,6 +420,38 @@ pub enum Request {
     #[serde(rename = "power.wake")]
     PowerWake { id: u64 },
 
+    // ── App-Store install / preview (admin) ───────────────────────────────────
+    /// Admin-only: install a store app package via apt (App-Store M1). `package`
+    /// is a `cube-app-<name>` deb name (validated by cubed, not this crate);
+    /// `version` optionally pins a specific version. `EBADREQ` on app connections.
+    #[serde(rename = "apt.install")]
+    AptInstall {
+        id: u64,
+        package: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        version: Option<String>,
+    },
+
+    /// Admin-only: upgrade an installed store app package via apt (App-Store M1).
+    #[serde(rename = "apt.upgrade")]
+    AptUpgrade {
+        id: u64,
+        package: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        version: Option<String>,
+    },
+
+    /// Admin-only: play a store app's preview GIF on the panel (App-Store M1, D2
+    /// path handoff). `path` points inside `/run/cube/store-previews/` (validated
+    /// by cubed). `timeout_secs` optionally overrides `[apps] preview_timeout_secs`.
+    #[serde(rename = "preview.asset")]
+    PreviewAsset {
+        id: u64,
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_secs: Option<u32>,
+    },
+
     // ── System text overlay (admin peers only — SDS v7 §5.13, §6.1) ───────────
     /// Render a line of text into a system overlay layer (SDS v7 §6.1). No
     /// buffer / `SCM_RIGHTS` — `cubed` renders the text itself through its glyph
