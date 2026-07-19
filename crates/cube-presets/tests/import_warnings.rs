@@ -12,7 +12,7 @@
 
 mod common;
 
-use cube_presets::WarningCode;
+use cube_presets::{PresetOrigin, WarningCode};
 use cube_proto::ParamValue;
 
 const FIXTURE: &str = include_str!("fixtures/import_warnings.toml");
@@ -24,7 +24,7 @@ fn import_emits_all_four_warning_codes_sds_5_5() {
     let schema = common::schema_for_warnings("x", 1);
 
     let report = store
-        .import("x", "warnings", FIXTURE, &schema)
+        .import("x", "warnings", FIXTURE, &schema, PresetOrigin::User)
         .expect("import must succeed (warnings are non-fatal)");
 
     // Each code must appear at least once, keyed to the right param.
@@ -50,7 +50,7 @@ fn import_clamp_warning_carries_from_to_detail_sds_5_5() {
     let schema = common::schema_for_warnings("x", 1);
 
     let report = store
-        .import("x", "warnings", FIXTURE, &schema)
+        .import("x", "warnings", FIXTURE, &schema, PresetOrigin::User)
         .expect("import must succeed");
 
     let clamp = report
@@ -71,7 +71,7 @@ fn import_final_params_reflects_clamps_and_drops_sds_5_5() {
     let schema = common::schema_for_warnings("x", 1);
 
     let report = store
-        .import("x", "warnings", FIXTURE, &schema)
+        .import("x", "warnings", FIXTURE, &schema, PresetOrigin::User)
         .expect("import must succeed");
 
     // Kept and clamped:
@@ -124,7 +124,7 @@ speed = { type = "string", value = "fast" }
     let schema = common::schema_for_warnings("x", 1);
 
     let err = store
-        .import("x", "etype", BODY, &schema)
+        .import("x", "etype", BODY, &schema, PresetOrigin::User)
         .expect_err("type mismatch must error");
     assert!(matches!(err, cube_presets::PresetError::TypeMismatch(_)), "{err:?}");
 }
