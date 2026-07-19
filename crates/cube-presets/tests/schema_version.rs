@@ -7,7 +7,7 @@
 
 mod common;
 
-use cube_presets::PresetError;
+use cube_presets::{PresetError, PresetOrigin};
 
 const PRESET_V1: &str = r#"
 [meta]
@@ -28,7 +28,7 @@ fn import_v1_preset_against_v2_schema_returns_eversion_sds_5_5() {
     let schema = common::schema_minimal("x", 2);
 
     let err = store
-        .import("x", "old", PRESET_V1, &schema)
+        .import("x", "old", PRESET_V1, &schema, PresetOrigin::User)
         .expect_err("schema_version mismatch must error");
 
     match err {
@@ -74,7 +74,7 @@ speed = { type = "int", value = 5 }
     let schema = common::schema_minimal("x", 1);
 
     let err = store
-        .import("x", "z", PRESET_FOR_Y, &schema)
+        .import("x", "z", PRESET_FOR_Y, &schema, PresetOrigin::User)
         .expect_err("meta.app != app must error");
     assert!(matches!(err, PresetError::AppMismatch), "{err:?}");
 

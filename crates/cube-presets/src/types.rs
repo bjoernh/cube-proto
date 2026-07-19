@@ -10,11 +10,15 @@ use serde::{Deserialize, Serialize};
 // PresetOrigin
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Whether a preset comes from the system (built-in) or the user directory.
+/// Where a preset comes from: the system directory (built-in), the user
+/// directory (saved on this cube), or the community subdirectory (imported
+/// from the app-store, App-Store M6). Name resolution precedence is
+/// user > community > built-in — see `PresetStore`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PresetOrigin {
     BuiltIn,
     User,
+    Community,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

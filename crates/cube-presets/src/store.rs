@@ -22,11 +22,19 @@ use crate::validate::validate_name;
 ///
 /// Layout:
 /// ```text
-/// <system_root>/<app>/presets/<name>.toml   — built-in (read-only)
-/// <user_root>/<app>/presets/<name>.toml     — user override
-/// <user_root>/<app>/presets/<name>.deleted  — tombstone hides built-in
-/// <user_root>/<app>/.lock                   — per-app flock file
+/// <system_root>/<app>/presets/<name>.toml          — built-in (read-only)
+/// <user_root>/<app>/presets/<name>.toml            — user override
+/// <user_root>/<app>/presets/community/<name>.toml  — imported from the app-store (App-Store M6)
+/// <user_root>/<app>/presets/<name>.deleted         — tombstone hides built-in
+/// <user_root>/<app>/.lock                          — per-app flock file
 /// ```
+///
+/// Name resolution precedence (list/export/load) is **user > community >
+/// built-in**, extending SDS §5.5's user-shadows-builtin rule. The community
+/// directory exists so an app-store import can never overwrite a preset the
+/// user saved themselves, and so listings can group "own" vs "community" from
+/// data rather than from naming conventions. Tombstones hide built-ins only —
+/// a community preset is removed by deleting its file, never tombstoned.
 pub struct PresetStore<F: FsOps> {
     system_root: PathBuf,
     user_root: PathBuf,
@@ -45,9 +53,11 @@ impl<F: FsOps> PresetStore<F> {
 
     /// List all visible presets for `app`.
     ///
-    /// Rules (SDS §5.5):
-    /// - User `.toml` files shadow same-named built-ins.
-    /// - `<name>.deleted` tombstones hide the built-in from the listing.
+    /// Rules (SDS §5.5 + App-Store M6):
+    /// - User `.toml` files shadow same-named community presets and built-ins;
+    ///   community presets shadow built-ins (user > community > built-in).
+    /// - `<name>.deleted` tombstones hide the built-in from the listing
+    ///   (community presets are unaffected by tombstones).
     /// - Only `.toml` and `.deleted` files are considered; everything else
     ///   (editor backups, in-flight temp files, etc.) is ignored.
     pub fn list(&self, app: &str) -> Result<Vec<(String, PresetOrigin)>, PresetError> {
@@ -55,6 +65,7 @@ impl<F: FsOps> PresetStore<F> {
 
         let system_dir = self.system_root.join(app).join("presets");
         let user_dir = self.user_root.join(app).join("presets");
+        let community_dir = user_dir.join("community");
 
         // Collect built-in names.
         let mut builtins: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -84,6 +95,19 @@ impl<F: FsOps> PresetStore<F> {
             }
         }
 
+        // Collect community .toml files (App-Store M6).
+        let mut community_files: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        if community_dir.is_dir() {
+            for entry in std::fs::read_dir(&community_dir)? {
+                let entry = entry?;
+                let fname = entry.file_name().to_string_lossy().into_owned();
+                if let Some(name) = fname.strip_suffix(".toml") {
+                    community_files.insert(name.to_owned());
+                }
+            }
+        }
+
         let mut result: Vec<(String, PresetOrigin)> = Vec::new();
 
         // Add user presets.
@@ -91,9 +115,21 @@ impl<F: FsOps> PresetStore<F> {
             result.push((name.clone(), PresetOrigin::User));
         }
 
-        // Add built-ins that are not shadowed by a user file or a tombstone.
+        // Add community presets not shadowed by a user file. Tombstones do not
+        // apply — they only ever hide built-ins.
+        for name in &community_files {
+            if !user_files.contains(name) {
+                result.push((name.clone(), PresetOrigin::Community));
+            }
+        }
+
+        // Add built-ins that are not shadowed by a user/community file or a
+        // tombstone.
         for name in &builtins {
-            if !user_files.contains(name) && !tombstones.contains(name) {
+            if !user_files.contains(name)
+                && !community_files.contains(name)
+                && !tombstones.contains(name)
+            {
                 result.push((name.clone(), PresetOrigin::BuiltIn));
             }
         }
@@ -107,24 +143,26 @@ impl<F: FsOps> PresetStore<F> {
 
     /// Read and parse a single preset.
     ///
-    /// User presets take precedence over built-ins (SDS §5.5).
+    /// Resolution precedence: user > community > built-in (SDS §5.5 +
+    /// App-Store M6). Tombstones hide built-ins only.
     pub fn export(&self, app: &str, name: &str) -> Result<PresetFile, PresetError> {
         validate_name(app)?;
         validate_name(name)?;
 
-        let user_path = self.user_root.join(app).join("presets").join(format!("{name}.toml"));
+        let presets_dir = self.user_root.join(app).join("presets");
+        let user_path = presets_dir.join(format!("{name}.toml"));
+        let community_path = presets_dir.join("community").join(format!("{name}.toml"));
         let system_path =
             self.system_root.join(app).join("presets").join(format!("{name}.toml"));
-        let tombstone =
-            self.user_root.join(app).join("presets").join(format!("{name}.deleted"));
-
-        // Tombstoned built-ins are hidden from export too.
-        if tombstone.exists() && !user_path.exists() {
-            return Err(PresetError::NotFound);
-        }
+        let tombstone = presets_dir.join(format!("{name}.deleted"));
 
         let path = if user_path.exists() {
             user_path
+        } else if community_path.exists() {
+            community_path
+        } else if tombstone.exists() {
+            // Tombstoned built-ins are hidden from export too.
+            return Err(PresetError::NotFound);
         } else if system_path.exists() {
             system_path
         } else {
@@ -208,13 +246,24 @@ impl<F: FsOps> PresetStore<F> {
     ///   keys, drops non-shareable keys, clamps out-of-range numeric values.
     /// - Writes the validated preset using the same write-temp-rename + fsync
     ///   ordering as `save`.
+    ///
+    /// `origin` picks the target directory: `User` writes to `presets/`,
+    /// `Community` (an app-store import, App-Store M6) to `presets/community/`
+    /// so it can never overwrite a preset the user saved themselves.
+    /// `BuiltIn` is rejected — the system directory is read-only.
     pub fn import(
         &self,
         app: &str,
         name: &str,
         toml_str: &str,
         schema: &Schema,
+        origin: PresetOrigin,
     ) -> Result<ImportReport, PresetError> {
+        if origin == PresetOrigin::BuiltIn {
+            return Err(PresetError::BadRequest(
+                "cannot import into the built-in (system) preset directory".to_owned(),
+            ));
+        }
         // Validate name BEFORE any filesystem operation.
         validate_name(app)?;
         validate_name(name)?;
@@ -248,11 +297,18 @@ impl<F: FsOps> PresetStore<F> {
 
         let user_app_dir = self.user_root.join(app);
         let presets_dir = user_app_dir.join("presets");
-        let target = presets_dir.join(format!("{name}.toml"));
+        let target_dir = match origin {
+            PresetOrigin::User => presets_dir.clone(),
+            PresetOrigin::Community => presets_dir.join("community"),
+            PresetOrigin::BuiltIn => unreachable!("rejected above"),
+        };
+        let target = target_dir.join(format!("{name}.toml"));
         let tombstone = presets_dir.join(format!("{name}.deleted"));
 
         // Acquire per-app exclusive lock.
         let _lock_guard = acquire_lock(&user_app_dir)?;
+
+        std::fs::create_dir_all(&target_dir)?;
 
         let toml_bytes = toml::to_string(&final_preset)
             .map_err(|e| PresetError::BadRequest(format!("failed to serialize preset: {e}")))?
@@ -263,8 +319,10 @@ impl<F: FsOps> PresetStore<F> {
         self.fs.rename(&tmp_path, &target)?;
         self.fs.fsync_parent(&target)?;
 
-        // Remove tombstone if present.
-        if tombstone.exists() {
+        // Remove tombstone if present. Only a *user* import un-tombstones a
+        // deleted built-in — a community import lives in its own namespace
+        // and must not resurrect one as a side effect.
+        if origin == PresetOrigin::User && tombstone.exists() {
             let _ = std::fs::remove_file(&tombstone);
         }
 
@@ -275,11 +333,16 @@ impl<F: FsOps> PresetStore<F> {
     // delete
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// Delete a preset.
+    /// Delete a preset — always the *visible* one under the user > community >
+    /// built-in precedence chain:
     ///
     /// - User preset: remove the file.
+    /// - Community preset (no user file): remove the file.
     /// - Built-in only: write a tombstone.
-    /// - Neither: `ENOENT`.
+    /// - None of the three: `ENOENT`.
+    ///
+    /// Whenever a file removal would reveal a same-named built-in, a tombstone
+    /// keeps it hidden — deleting a name means the name goes away.
     ///
     /// Uses `FsOps` for all filesystem calls so the order is observable.
     pub fn delete(&self, app: &str, name: &str) -> Result<(), PresetError> {
@@ -290,33 +353,41 @@ impl<F: FsOps> PresetStore<F> {
         let user_app_dir = self.user_root.join(app);
         let presets_dir = user_app_dir.join("presets");
         let user_path = presets_dir.join(format!("{name}.toml"));
+        let community_path = presets_dir.join("community").join(format!("{name}.toml"));
         let tombstone_path = presets_dir.join(format!("{name}.deleted"));
         let system_path =
             self.system_root.join(app).join("presets").join(format!("{name}.toml"));
 
         let user_exists = user_path.exists();
+        let community_exists = community_path.exists();
         let system_exists = system_path.exists();
 
-        if !user_exists && !system_exists {
+        if !user_exists && !community_exists && !system_exists {
             return Err(PresetError::NotFound);
         }
 
         // Acquire per-app exclusive lock.
         let _lock_guard = acquire_lock(&user_app_dir)?;
 
-        if user_exists {
-            // Remove user file; no tombstone needed unless the built-in also exists.
+        let removed = if user_exists {
             self.fs.remove_file(&user_path)?;
             self.fs.fsync_parent(&user_path)?;
-            // If there's also a built-in, write a tombstone so the built-in
-            // stays hidden.
-            if system_exists {
-                self.fs.create_tombstone(&tombstone_path)?;
-                self.fs.fsync_file(&tombstone_path)?;
-                self.fs.fsync_parent(&tombstone_path)?;
-            }
+            true
+        } else if community_exists {
+            self.fs.remove_file(&community_path)?;
+            self.fs.fsync_parent(&community_path)?;
+            true
         } else {
-            // Built-in only → tombstone.
+            false
+        };
+
+        // Keep a same-named built-in hidden (file removal would otherwise
+        // reveal it), or hide it directly when it was the visible one.
+        // Exception: a user-file removal that reveals a *community* preset
+        // writes no tombstone for the built-in shadowed further down — the
+        // community preset keeps shadowing it either way.
+        let reveals_builtin = system_exists && !(removed && user_exists && community_exists);
+        if reveals_builtin {
             self.fs.create_tombstone(&tombstone_path)?;
             self.fs.fsync_file(&tombstone_path)?;
             self.fs.fsync_parent(&tombstone_path)?;

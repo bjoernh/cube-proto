@@ -15,7 +15,7 @@ mod common;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use cube_presets::{PresetError, PresetFile, PresetMeta};
+use cube_presets::{PresetError, PresetFile, PresetMeta, PresetOrigin};
 use cube_proto::ParamValue;
 
 fn snapshot(dir: &Path) -> Vec<String> {
@@ -75,7 +75,7 @@ fn import_rejects_invalid_names_before_fs_touch_sds_5_5() {
     let before = snapshot(&presets_dir);
     for bad in BAD_NAMES {
         let err = store
-            .import("x", bad, body, &schema)
+            .import("x", bad, body, &schema, PresetOrigin::User)
             .expect_err(&format!("import({bad:?}) must be rejected"));
         assert!(matches!(err, PresetError::BadRequest(_)), "name={bad:?}, err={err:?}");
     }

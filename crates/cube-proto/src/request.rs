@@ -397,7 +397,21 @@ pub enum Request {
     PresetExport { id: u64, app: String, name: String },
 
     #[serde(rename = "preset.import")]
-    PresetImport { id: u64, app: String, toml: String },
+    PresetImport {
+        id: u64,
+        app: String,
+        toml: String,
+        /// On-cube preset name override (App-Store M6). When absent the name
+        /// is derived from the TOML's `meta.preset_name` — which is display
+        /// text and may violate the SDS §5.5 name rule; store imports pass
+        /// their slug here instead.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        /// `true` stores the preset with `Community` origin
+        /// (`presets/community/`, App-Store M6) instead of as a user preset.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        community: bool,
+    },
 
     // ── Brightness / diagnostics ──────────────────────────────────────────────
     #[serde(rename = "brightness.set")]
