@@ -19,6 +19,7 @@ use cube_config::{
 fn make_cfg(refresh_hz: u32) -> SystemConfig {
     SystemConfig {
         display: DisplayConfig {
+            sim_target: None,
             drm_driver: "vkms".to_owned(),
             connector: "Writeback-1".to_owned(),
             mode: "384x64@60".to_owned(),
