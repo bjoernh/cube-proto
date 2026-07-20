@@ -223,6 +223,24 @@ pub enum Request {
         session_token: Option<String>,
     },
 
+    /// Inject a synthetic input event (admin plane only; cube-sim design
+    /// §6.2). `type`/`code` use the same wire vocabulary `input.event`
+    /// emits (`key`/`abs`, `btn_a`/`abs_hat0x`/…); `player` is the slot the
+    /// event is attributed to. The event enters the daemon's normal
+    /// classify → route → deliver path, so reserved keys, player slots and
+    /// focus routing all apply — which is what makes it a faithful test
+    /// vehicle (and a uinput-free `cubectl` scripting hook).
+    #[serde(rename = "input.inject")]
+    InputInject {
+        id: u64,
+        #[serde(rename = "type")]
+        kind: String,
+        code: String,
+        value: i32,
+        #[serde(default)]
+        player: u8,
+    },
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     #[serde(rename = "list")]
     List { id: u64 },
