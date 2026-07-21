@@ -81,6 +81,12 @@ pub struct DisplayConfig {
     pub mode: String,
     pub refresh_hz: u32,
     pub spi_clock_hz: u32,
+    /// cube-sim viewer address (`host:port`) for `--drm-backend sim`
+    /// (cube-sim design §6.1). Optional so existing system.toml files parse;
+    /// the `CUBED_SIM_TARGET` env var overrides, and the backend falls back
+    /// to `127.0.0.1:2323` when neither is set.
+    #[serde(default)]
+    pub sim_target: Option<String>,
 }
 
 /// `[remote_render]` section (SDS v5 §6.4).
