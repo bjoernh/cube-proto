@@ -37,6 +37,7 @@ fn sample_manifest() -> Manifest {
         requires: Some(RequiresSection {
             libcube: None,
             cubekit: Some(VersionReq::parse("0.1").unwrap()),
+            cubego: None,
             inputs: vec!["joystick".to_owned()],
             sensors: vec!["imu".to_owned()],
             network: true,
@@ -122,6 +123,28 @@ fn manifest_to_toml_round_trips_the_a1_metadata_fields() {
     assert_eq!(back.app.description.as_deref(), Some("Classic snake, six faces"));
     assert_eq!(back.app.preview.as_deref(), Some("preview.gif"));
     assert_eq!(back.app.players, Some(Players { min: 1, max: 1 }));
+}
+
+/// SDS v6 §7.2: `cubego` is the third alternative SDK-compat field — it emits
+/// and round-trips through the loader exactly like `libcube`/`cubekit`
+/// (cube#71).
+#[test]
+fn manifest_to_toml_round_trips_the_cubego_sdk_requirement() {
+    let mut m = sample_manifest();
+    let requires = m.requires.as_mut().expect("sample has [requires]");
+    requires.cubekit = None;
+    requires.cubego = Some(VersionReq::parse("0.3").unwrap());
+
+    let toml = manifest_to_toml(&m);
+    assert!(toml.contains("cubego = "), "cubego must be emitted:\n{toml}");
+    assert!(!toml.contains("cubekit"), "absent cubekit not emitted:\n{toml}");
+
+    let (_dir, path) = write_tmp("manifest.toml", &toml);
+    let back = load_manifest(&path).expect("emitted cubego manifest must parse");
+    let req = back.requires.expect("requires section");
+    assert_eq!(req.cubego, Some(VersionReq::parse("0.3").unwrap()));
+    assert!(req.libcube.is_none());
+    assert!(req.cubekit.is_none());
 }
 
 /// SDS v7.1 §A1: all four §A1 fields are omitted from emitted TOML when unset.
