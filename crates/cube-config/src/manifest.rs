@@ -102,15 +102,17 @@ pub struct AppSection {
 
 /// `[requires]` section of a `manifest.toml`.
 ///
-/// SDS v6 §7.2: `libcube` and `cubekit` are alternative SDK-compatibility
-/// fields — an app declares **exactly one**, matching the SDK it links. This
-/// is enforced by [`load_manifest`] only when a `[requires]` table is
-/// present at all; a manifest with no `[requires]` table remains valid
-/// (v5 compat).
+/// SDS v6 §7.2: `libcube`, `cubekit` and `cubego` are alternative
+/// SDK-compatibility fields — an app declares **exactly one**, matching the
+/// SDK it links (C++, Rust and Go respectively). This is enforced by
+/// [`load_manifest`] only when a `[requires]` table is present at all; a
+/// manifest with no `[requires]` table remains valid (v5 compat).
 #[derive(Debug, Clone)]
 pub struct RequiresSection {
     pub libcube: Option<VersionReq>,
     pub cubekit: Option<VersionReq>,
+    /// Go SDK compatibility requirement (cube-system#7).
+    pub cubego: Option<VersionReq>,
     pub inputs: Vec<String>,
     pub sensors: Vec<String>,
     /// `true` if the app declares a need for outbound network access
@@ -180,6 +182,8 @@ struct RawRequires {
     libcube: Option<VersionReq>,
     #[serde(default, deserialize_with = "de_opt_version_req")]
     cubekit: Option<VersionReq>,
+    #[serde(default, deserialize_with = "de_opt_version_req")]
+    cubego: Option<VersionReq>,
     #[serde(default)]
     inputs: Vec<String>,
     #[serde(default)]
@@ -257,8 +261,9 @@ pub(crate) fn validate_app_name(name: &str) -> Result<(), String> {
 /// emission half of "agree by construction" (cubekit-spec §9.4): the same crate
 /// that loads `manifest.toml` also emits it, so emitter and loader cannot drift.
 /// `Option` fields (`icon`, the four §A1 metadata fields `accent`/`description`/
-/// `preview`/`players`, `requires`, `power`, and the SDK-compat `libcube`/
-/// `cubekit` fields) are omitted entirely when `None`. `players` is emitted as
+/// `preview`/`players`, `requires`, `power`, and the SDK-compat
+/// `libcube`/`cubekit`/
+/// `cubego` fields) are omitted entirely when `None`. `players` is emitted as
 /// an inline table `{ min = N, max = M }` (SDS v7.1 §A1).
 #[must_use]
 pub fn manifest_to_toml(m: &Manifest) -> String {
@@ -293,7 +298,8 @@ pub fn manifest_to_toml(m: &Manifest) -> String {
     app.sort_values();
     doc.insert("app", Item::Table(app));
 
-    // [requires] — emitted only when present; libcube/cubekit each only if Some.
+    // [requires] — emitted only when present; libcube/cubekit/cubego each only
+    // if Some.
     if let Some(req) = &m.requires {
         let mut requires = Table::new();
         if let Some(libcube) = &req.libcube {
@@ -301,6 +307,9 @@ pub fn manifest_to_toml(m: &Manifest) -> String {
         }
         if let Some(cubekit) = &req.cubekit {
             requires.insert("cubekit", value(cubekit.to_string()));
+        }
+        if let Some(cubego) = &req.cubego {
+            requires.insert("cubego", value(cubego.to_string()));
         }
         let mut inputs = Array::new();
         for s in &req.inputs {
@@ -411,24 +420,29 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
     let requires = raw
         .requires
         .map(|r| {
-            // SDS v6 §7.2: `libcube` and `cubekit` are alternative
+            // SDS v6 §7.2: `libcube`, `cubekit` and `cubego` are alternative
             // SDK-compatibility fields — exactly one must be declared when
             // `[requires]` is present at all.
-            match (&r.libcube, &r.cubekit) {
-                (Some(_), Some(_)) => Err(parse_err(
-                    "[requires]: declare exactly one of `libcube` or `cubekit`, not both"
+            let declared = usize::from(r.libcube.is_some())
+                + usize::from(r.cubekit.is_some())
+                + usize::from(r.cubego.is_some());
+            match declared {
+                0 => Err(parse_err(
+                    "[requires]: must declare exactly one of `libcube`, `cubekit` or `cubego`"
                         .to_owned(),
                 )),
-                (None, None) => Err(parse_err(
-                    "[requires]: must declare exactly one of `libcube` or `cubekit`".to_owned(),
-                )),
-                _ => Ok(RequiresSection {
+                1 => Ok(RequiresSection {
                     libcube: r.libcube,
                     cubekit: r.cubekit,
+                    cubego: r.cubego,
                     inputs: r.inputs,
                     sensors: r.sensors,
                     network: r.network,
                 }),
+                _ => Err(parse_err(
+                    "[requires]: declare exactly one of `libcube`, `cubekit` or `cubego`, not more"
+                        .to_owned(),
+                )),
             }
         })
         .transpose()?;

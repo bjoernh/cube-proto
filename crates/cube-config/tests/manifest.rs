@@ -232,6 +232,47 @@ sensors = []
     assert!(requires.libcube.is_none());
 }
 
+/// SDS v6 §7.2: `[requires] cubego = "..."` is the third valid alternative
+/// (the Go SDK) — exactly one SDK-compatibility field is required (cube#71).
+#[test]
+fn manifest_requires_cubego_only_is_ok_sds_7_2() {
+    let body = "\
+[app]
+name = \"gosnake\"
+display_name = \"Go Snake\"
+version = \"1.0.0\"
+category = \"game\"
+
+[requires]
+cubego = \">= 0.3\"
+inputs = []
+sensors = []
+";
+    let p = write(body);
+    let m = load_manifest(&p).expect("manifest with only cubego requirement must parse");
+    let requires = m.requires.expect("requires table present");
+    assert_eq!(
+        requires.cubego,
+        Some(semver::VersionReq::parse(">= 0.3").unwrap())
+    );
+    assert!(requires.libcube.is_none());
+    assert!(requires.cubekit.is_none());
+}
+
+/// SDS v6 §7.2: `cubego` is mutually exclusive with the other two SDK-compat
+/// fields — declaring it alongside `cubekit` is rejected (cube#71).
+#[test]
+fn manifest_requires_both_cubekit_and_cubego_is_error_sds_7_2() {
+    let body = SNAKE.replace(
+        "[requires]\nlibcube = \">= 2.0\"",
+        "[requires]\ncubekit = \">= 1.0\"\ncubego = \">= 0.3\"",
+    );
+    let p = write(&body);
+    let err = load_manifest(&p)
+        .expect_err("declaring both cubekit and cubego must be rejected (SDS v6 §7.2)");
+    assert!(matches!(err, ConfigError::Parse { .. }));
+}
+
 /// SDS v6 §7.2: declaring both `libcube` and `cubekit` is an error — exactly
 /// one SDK-compatibility field must be present when `[requires]` exists.
 #[test]
