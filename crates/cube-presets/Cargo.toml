@@ -4,14 +4,20 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Preset TOML I/O with flock-protected write-temp-rename and fsync ordering."
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Preset TOML I/O for LED Cube 2.0 with flock-protected atomic writes and fsync ordering."
+readme = "README.md"
+keywords = ["led-cube", "presets", "toml"]
+categories = ["filesystem", "config"]
 
 [lints]
 workspace = true
 
 [dependencies]
-cube-proto = { path = "../cube-proto" }
-cube-config = { path = "../cube-config" }
+cube-proto = { path = "../cube-proto", version = "0.2.0" }
+cube-config = { path = "../cube-config", version = "0.1.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"

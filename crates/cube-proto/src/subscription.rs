@@ -1,5 +1,4 @@
-//! Subscribe response model: `SubscribeResult` + the baseline `Snapshot`
-//! (SDS v6 §5.13 "Snapshot semantics").
+//! Subscribe response model: `SubscribeResult` + the baseline `Snapshot`.
 //!
 //! A `subscribe` OK response carries a [`SubscribeResult`] in `Response.result`:
 //! the assigned `sub_id`, the `event_seq` baseline the stream starts after, and
@@ -18,7 +17,7 @@ use crate::event::PowerState;
 use crate::input::ControllerInfo;
 use crate::status::PauseCauses;
 
-/// `result` body of a `subscribe` OK response (SDS v6 §5.13).
+/// `result` body of a `subscribe` OK response.
 ///
 /// Without `snapshot: true` the result carries `sub_id` + the `event_seq`
 /// baseline only; the `snapshot` field is omitted from the wire when absent.
@@ -35,8 +34,7 @@ pub struct SubscribeResult {
     pub snapshot: Option<Snapshot>,
 }
 
-/// Baseline state captured at subscribe time (SDS v6 §5.13 "Snapshot
-/// semantics"). Only subscribed classes appear — each section is omitted when
+/// Baseline state captured at subscribe time. Only subscribed classes appear — each section is omitted when
 /// its class was not part of the `events` filter.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -60,7 +58,7 @@ pub struct Snapshot {
     pub input_capture: Option<InputCaptureSnapshot>,
 }
 
-/// `lifecycle` snapshot section (SDS v6 §5.13). Bounded by `max_resident`:
+/// `lifecycle` snapshot section. Bounded by `max_resident`:
 /// `sessions` never exceeds the daemon's resident capacity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LifecycleSnapshot {
@@ -71,7 +69,7 @@ pub struct LifecycleSnapshot {
     pub sessions: Vec<SessionSnapshot>,
 }
 
-/// One resident session in a [`LifecycleSnapshot`] (SDS v6 §5.13).
+/// One resident session in a [`LifecycleSnapshot`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionSnapshot {
     pub app: String,
@@ -84,7 +82,7 @@ pub struct SessionSnapshot {
     pub pause_causes: PauseCauses,
 }
 
-/// `telemetry` snapshot section (SDS v6 §5.13): the current per-app frame
+/// `telemetry` snapshot section: the current per-app frame
 /// telemetry. Never carries parameter values.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TelemetrySnapshot {
@@ -94,13 +92,13 @@ pub struct TelemetrySnapshot {
     pub frame_seq: u64,
 }
 
-/// `brightness` snapshot section (SDS v6 §5.13): the current global brightness.
+/// `brightness` snapshot section: the current global brightness.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BrightnessSnapshot {
     pub value: u8,
 }
 
-/// `power` snapshot section (SDS v6 §5.13): the current display power state.
+/// `power` snapshot section: the current display power state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerSnapshot {
     pub state: PowerState,

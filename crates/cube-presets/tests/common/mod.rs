@@ -1,9 +1,6 @@
 //! Shared helpers for the cube-presets integration tests.
 //!
-//! Wave 3 RED scaffolding: these helpers reference items in
-//! `cube_presets::*` and `cube_config::*` that do not yet exist. The tests
-//! that import this module are intentionally non-compiling until the
-//! implementation lands.
+//! These helpers provide `cube_presets` / `cube_config` fixtures.
 
 #![allow(dead_code)]
 
@@ -54,5 +51,7 @@ pub fn schema_for_warnings(app: &str, version: u32) -> Schema {
 
 /// A schema with just `speed`, used by tests that don't care about warning kinds.
 pub fn schema_minimal(app: &str, version: u32) -> Schema {
-    Schema::builder(app, version).int_range("speed", 0, 10).build()
+    Schema::builder(app, version)
+        .int_range("speed", 0, 10)
+        .build()
 }

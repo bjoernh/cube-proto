@@ -1,5 +1,5 @@
-//! Loader for `/etc/cube/system.toml` (SDS §6.4) and SIGHUP-safe swap
-//! handle (ARCH §4.11).
+//! Loader for `/etc/cube/system.toml` and SIGHUP-safe swap
+//! handle.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -21,10 +21,7 @@ pub enum ConfigError {
     /// The file exists but could not be parsed (malformed TOML or missing
     /// required fields).
     #[error("failed to parse {path}: {message}")]
-    Parse {
-        path: PathBuf,
-        message: String,
-    },
+    Parse { path: PathBuf, message: String },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +49,7 @@ pub struct ValidationReport {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SystemConfig and sub-structs (SDS §6.4)
+// SystemConfig and sub-structs
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Top-level system configuration parsed from `/etc/cube/system.toml`.
@@ -64,7 +61,7 @@ pub struct SystemConfig {
     pub imu: ImuConfig,
     pub transitions: TransitionsConfig,
     pub power: PowerConfig,
-    /// `[apps]` section (SDS v6 §1/§7.2). Optional; a missing table parses
+    /// `[apps]` section. Optional; a missing table parses
     /// as the default (`max_resident = 1`).
     #[serde(default)]
     pub apps: AppsConfig,
@@ -82,14 +79,14 @@ pub struct DisplayConfig {
     pub refresh_hz: u32,
     pub spi_clock_hz: u32,
     /// cube-sim viewer address (`host:port`) for `--drm-backend sim`
-    /// (cube-sim design §6.1). Optional so existing system.toml files parse;
+    /// (cube-sim design). Optional so existing system.toml files parse;
     /// the `CUBED_SIM_TARGET` env var overrides, and the backend falls back
     /// to `127.0.0.1:2323` when neither is set.
     #[serde(default)]
     pub sim_target: Option<String>,
 }
 
-/// `[remote_render]` section (SDS v5 §6.4).
+/// `[remote_render]` section.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteRenderConfig {
     pub enabled: bool,
@@ -101,11 +98,11 @@ pub struct RemoteRenderConfig {
 /// `[input]` section.
 ///
 /// Reserved-key values (`key_back`/`key_home`/`key_power`) are now **canonical
-/// button names** (`Select`/`Start`/`Guide`) per the cube-gamepad spec; the
+/// button names** (`Select`/`Start`/`Guide`); the
 /// legacy evdev spellings (`BTN_SELECT`/`BTN_START`/`BTN_MODE`) are still
 /// accepted by the classifier for one release with a deprecation warning (M7).
 ///
-/// Discovery is **capability-based** (cube-gamepad spec §"Discovery"; M8): any
+/// Discovery is **capability-based**: any
 /// standard gamepad is adopted, filtered only by the `device_allow`/
 /// `device_deny` policy. The legacy `system_controller_name_pattern` glob is
 /// demoted to an optional deprecated alias (`Option`, `#[serde(default)]`) so
@@ -113,8 +110,8 @@ pub struct RemoteRenderConfig {
 /// defaults so a config that omits them is valid.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputConfig {
-    /// **Deprecated** legacy single-controller name glob (cube-gamepad spec
-    /// §"Discovery"; M8). Retained as an optional alias for one release: when
+    /// **Deprecated** legacy single-controller name glob.
+    /// Retained as an optional alias for one release: when
     /// `Some`, it seeds [`device_allow`](Self::device_allow) and a one-time
     /// deprecation warning is emitted. New configs use the capability-based
     /// `device_allow`/`device_deny` policy instead and omit this key (then it
@@ -127,7 +124,7 @@ pub struct InputConfig {
     pub key_home: String,
     /// Reserved "power" key in canonical button terms (`Guide`); Player 1 only.
     pub key_power: String,
-    /// Capability-discovery **allowlist** (cube-gamepad spec §"Discovery").
+    /// Capability-discovery **allowlist**.
     /// Each entry is either a `VID:PID` string (e.g. `"2dc8:9018"`) matched
     /// against the device's vendor:product, or a name glob matched against the
     /// evdev device name. **Empty = allow any gamepad.** The deprecated
@@ -139,13 +136,13 @@ pub struct InputConfig {
     /// allow match.
     #[serde(default)]
     pub device_deny: Vec<String>,
-    /// Maximum number of player slots (cube-gamepad spec §"Multiplayer"). Sizes
+    /// Maximum number of player slots. Sizes
     /// the Phase-4 per-player arrays; stored now, consumed there. Defaults to
     /// [`InputConfig::DEFAULT_MAX_PLAYERS`].
     #[serde(default = "default_max_players")]
     pub max_players: u8,
-    /// Local override directory for gamepad-profile TOMLs (cube-gamepad spec
-    /// §"Configuration & shipping"). Shipped read-only profiles live in
+    /// Local override directory for gamepad-profile TOMLs.
+    /// Shipped read-only profiles live in
     /// `/usr/share/cube/gamepad-profiles`; this is the local overlay that wins
     /// on conflict. Absent → [`InputConfig::DEFAULT_PROFILES_DIR`].
     #[serde(default)]
@@ -159,11 +156,11 @@ fn default_max_players() -> u8 {
 
 impl InputConfig {
     /// The standard local profiles directory used when `profiles_dir` is unset
-    /// (cube-gamepad spec §"Discovery").
+    ///.
     pub const DEFAULT_PROFILES_DIR: &'static str = "/etc/cube/gamepad-profiles";
 
     /// Default maximum number of player slots when `max_players` is absent
-    /// (cube-gamepad spec §"Multiplayer").
+    ///.
     pub const DEFAULT_MAX_PLAYERS: u8 = 8;
 
     /// The configured local profiles directory, or the standard default when
@@ -177,7 +174,7 @@ impl InputConfig {
 
     /// The effective capability-discovery allowlist: [`device_allow`] with the
     /// deprecated [`system_controller_name_pattern`] folded in as an extra
-    /// name-glob entry (cube-gamepad spec §"Discovery"; M8).
+    /// name-glob entry.
     ///
     /// [`load_system`] seeds [`device_allow`] from the legacy pattern at parse
     /// time, but configs built in-process (e.g. tests) may carry the pattern
@@ -216,11 +213,11 @@ pub struct TransitionsConfig {
 /// `[power]` section.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PowerConfig {
-    /// Seconds of inactivity before blanking. `0` means disabled (SDS §5.12).
+    /// Seconds of inactivity before blanking. `0` means disabled.
     pub idle_blank_after_sec: u32,
 }
 
-/// `[apps]` section (SDS v6 §1/§7.2).
+/// `[apps]` section.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppsConfig {
@@ -247,7 +244,7 @@ impl Default for AppsConfig {
 
 /// `[debug]` section — optional taps for diagnosing rendering behaviour.
 ///
-/// Every field here is re-loadable on SIGHUP (ARCH §4.11) so a debug tap can
+/// Every field here is re-loadable on SIGHUP so a debug tap can
 /// be turned on and off on a running daemon without a restart.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DebugConfig {
@@ -283,7 +280,7 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
         message: e.to_string(),
     })?;
 
-    // SDS v6 §1: `[apps] max_resident` must be at least 1 — every cube runs
+    //: `[apps] max_resident` must be at least 1 — every cube runs
     // at least one (foreground) app.
     if cfg.apps.max_resident == 0 {
         return Err(ConfigError::Parse {
@@ -294,8 +291,7 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
 
     let mut report = validate_system(&cfg);
 
-    // cube-gamepad spec §"Discovery" (M8): the legacy
-    // `system_controller_name_pattern` is a deprecated alias. When present it
+    // The legacy `system_controller_name_pattern` is a deprecated alias. When present it
     // seeds the capability-discovery `device_allow` list (so the old
     // single-controller filter still applies under capability-based discovery)
     // and surfaces a one-time deprecation warning.
@@ -318,7 +314,7 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
 fn validate_system(cfg: &SystemConfig) -> ValidationReport {
     let mut report = ValidationReport::default();
 
-    // SDS §6.4: warn when bind is not a loopback address (i.e. exposed on the LAN).
+    //: warn when bind is not a loopback address (i.e. exposed on the LAN).
     let loopback_prefixes = ["127.", "::1"];
     let is_loopback = |addr: &str| loopback_prefixes.iter().any(|p| addr.starts_with(p));
 
@@ -337,21 +333,21 @@ fn validate_system(cfg: &SystemConfig) -> ValidationReport {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SystemConfigHandle (ARCH §4.11)
+// SystemConfigHandle
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// An `Arc<SystemConfig>` stored inside an `ArcSwap` so that it can be
 /// atomically replaced on SIGHUP without blocking readers.
 ///
-/// Callers snapshot the current config by calling `load()`; the returned
-/// `Arc` remains valid even after a subsequent `swap()`.
+/// Callers snapshot the current config by calling `load`; the returned
+/// `Arc` remains valid even after a subsequent `swap`.
 pub struct SystemConfigHandle {
     inner: ArcSwap<SystemConfig>,
 }
 
 impl SystemConfigHandle {
     /// Create a new handle pre-loaded with the given config.
-    #[must_use] 
+    #[must_use]
     pub fn new(cfg: SystemConfig) -> Self {
         Self {
             inner: ArcSwap::from_pointee(cfg),

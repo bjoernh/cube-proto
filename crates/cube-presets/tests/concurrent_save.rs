@@ -1,4 +1,4 @@
-//! Concurrent `save()` against `RealFsOps` (SDS §5.6).
+//! Concurrent `save` against `RealFsOps`.
 //!
 //! Eight threads each save a distinct preset name into the same user dir.
 //! The per-app `.lock` (`flock(LOCK_EX)`) serializes them; the
@@ -36,7 +36,7 @@ fn preset_file(app: &str, name: &str, n: i64) -> PresetFile {
 }
 
 #[test]
-fn eight_threads_save_distinct_presets_concurrently_sds_5_6() {
+fn eight_threads_save_distinct_presets_concurrently() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, user_root) = common::make_store(tmp.path(), "x");
     let schema = common::schema_minimal("x", 1);

@@ -1,4 +1,4 @@
-//! SDS v6 §5.13 — the shared admin client's subscription helpers.
+//! — the shared admin client's subscription helpers.
 //!
 //! Pins the surface that `cubectl watch --events` and `cube-mcp cube_watch`
 //! build on: an open-ended `subscribe` returning the [`cube_proto::SubscribeResult`]
@@ -18,7 +18,7 @@ use tokio::net::{UnixListener, UnixStream};
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Answer `hello`, then for the first `subscribe` reply with an ack carrying
-/// `sub_id`/`event_seq` (+ optional `snapshot`), then stream `events`, then —
+/// `sub_id`/`event_seq` (optional `snapshot`), then stream `events`, then —
 /// if `end_after` is set — a terminal `subscription.ended`.
 fn spawn_admin(
     listener: UnixListener,
@@ -46,12 +46,18 @@ fn spawn_admin(
         line.clear();
         reader.read_line(&mut line).await.expect("subscribe");
         let sub: serde_json::Value = serde_json::from_str(line.trim_end()).unwrap();
-        assert_eq!(sub["cmd"], "subscribe", "client must send a subscribe: {sub}");
+        assert_eq!(
+            sub["cmd"], "subscribe",
+            "client must send a subscribe: {sub}"
+        );
         let sid = sub["id"].as_u64().unwrap();
         let mut ack = ack;
         ack["id"] = serde_json::json!(sid);
         ack["ok"] = serde_json::json!(true);
-        write.write_all(format!("{ack}\n").as_bytes()).await.unwrap();
+        write
+            .write_all(format!("{ack}\n").as_bytes())
+            .await
+            .unwrap();
         write.flush().await.unwrap();
 
         for ev in events {
@@ -84,7 +90,7 @@ fn bind() -> (tempfile::TempDir, std::path::PathBuf, UnixListener) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn subscribe_returns_ack_and_streams_events_sds_5_13() {
+async fn subscribe_returns_ack_and_streams_events() {
     let (_dir, sock, listener) = bind();
     spawn_admin(
         listener,
@@ -123,7 +129,7 @@ async fn subscribe_returns_ack_and_streams_events_sds_5_13() {
 }
 
 #[tokio::test]
-async fn subscribe_with_snapshot_surfaces_it_sds_5_13() {
+async fn subscribe_with_snapshot_surfaces_it() {
     let (_dir, sock, listener) = bind();
     spawn_admin(
         listener,
@@ -140,7 +146,10 @@ async fn subscribe_with_snapshot_surfaces_it_sds_5_13() {
     let (ack, _events) = client.subscribe(opts).await.expect("subscribe");
 
     let snapshot = ack.snapshot.expect("snapshot present");
-    assert_eq!(snapshot.power.expect("power").state, cube_proto::PowerState::Active);
+    assert_eq!(
+        snapshot.power.expect("power").state,
+        cube_proto::PowerState::Active
+    );
     assert_eq!(snapshot.brightness.expect("brightness").value, 128);
 }
 
@@ -149,7 +158,7 @@ async fn subscribe_with_snapshot_surfaces_it_sds_5_13() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn subscribe_collect_drains_bounded_batch_sds_5_13() {
+async fn subscribe_collect_drains_bounded_batch() {
     let (_dir, sock, listener) = bind();
     spawn_admin(
         listener,
@@ -183,7 +192,7 @@ async fn subscribe_collect_drains_bounded_batch_sds_5_13() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn request_after_server_eof_errors_cleanly_sds_5_13() {
+async fn request_after_server_eof_errors_cleanly() {
     let (_dir, sock, listener) = bind();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
@@ -207,7 +216,10 @@ async fn request_after_server_eof_errors_cleanly_sds_5_13() {
     // Give the server's drop time to propagate.
     tokio::time::sleep(Duration::from_millis(50)).await;
     let opts = SubscribeOptions::new(&["lifecycle"]);
-    let err = client.subscribe(opts).await.expect_err("subscribe after EOF must error");
+    let err = client
+        .subscribe(opts)
+        .await
+        .expect_err("subscribe after EOF must error");
     // A surfaced error, not a panic or an infinite wait.
     let _ = err;
 }
@@ -217,9 +229,18 @@ async fn request_after_server_eof_errors_cleanly_sds_5_13() {
 #[test]
 fn resolve_host_accepts_unix_and_path_rejects_tcp() {
     use cube_admin_client::resolve_host;
-    assert_eq!(resolve_host(None).unwrap(), std::path::PathBuf::from("/run/cube/admin"));
-    assert_eq!(resolve_host(Some("unix:/tmp/a.sock")).unwrap(), std::path::PathBuf::from("/tmp/a.sock"));
-    assert_eq!(resolve_host(Some("/tmp/b.sock")).unwrap(), std::path::PathBuf::from("/tmp/b.sock"));
+    assert_eq!(
+        resolve_host(None).unwrap(),
+        std::path::PathBuf::from("/run/cube/admin")
+    );
+    assert_eq!(
+        resolve_host(Some("unix:/tmp/a.sock")).unwrap(),
+        std::path::PathBuf::from("/tmp/a.sock")
+    );
+    assert_eq!(
+        resolve_host(Some("/tmp/b.sock")).unwrap(),
+        std::path::PathBuf::from("/tmp/b.sock")
+    );
     assert!(resolve_host(Some("tcp:1.2.3.4:9")).is_err());
 }
 

@@ -1,14 +1,11 @@
-//! Wave 24 — cube-proto extensions for remote rendering (RED tests).
+//! Wire shapes for the cube-proto remote-render protocol extensions.
 //!
-//! These tests pin the wire shapes for the Phase 3 remote-render protocol
-//! extensions before any of the corresponding types exist. They are expected
-//! to fail to compile until Wave 24 implementation lands.
+//! Naming convention: `<thing>_roundtrips`. Areas covered:
 //!
-//! Naming convention: `<thing>_roundtrips_sds_<sec>_<sub>`. SDS sections:
-//! - `_sds_6_1_` — JSON control-message extensions (hello.frame, register).
-//! - `_sds_6_2_` — Binary frame stream (`FrameHeader`, present.dropped,
+//! - JSON control-message extensions (hello.frame, register).
+//! - Binary frame stream (`FrameHeader`, present.dropped,
 //!   `remote.frames_dropped`, payload size, session token).
-//! - `_sds_5_11_` — Client stats (`client.stats`).
+//! - Client stats (`client.stats`).
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -47,11 +44,11 @@ fn roundtrip_event(j: &Value) -> Value {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. Event::PresentDropped  (SDS §6.2)
+// 1. Event::PresentDropped
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn present_dropped_too_late_roundtrips_sds_6_2() {
+fn present_dropped_too_late_roundtrips() {
     let j = serde_json::json!({
         "event": "present.dropped",
         "seq": 99,
@@ -62,7 +59,7 @@ fn present_dropped_too_late_roundtrips_sds_6_2() {
 }
 
 #[test]
-fn present_dropped_fragmented_roundtrips_sds_6_2() {
+fn present_dropped_fragmented_roundtrips() {
     let j = serde_json::json!({
         "event": "present.dropped",
         "seq": 99,
@@ -73,7 +70,7 @@ fn present_dropped_fragmented_roundtrips_sds_6_2() {
 }
 
 #[test]
-fn present_dropped_focus_lost_roundtrips_sds_6_2_present() {
+fn present_dropped_focus_lost_roundtrips() {
     let j = json!({
         "event": "present.dropped",
         "seq": 44,
@@ -83,7 +80,7 @@ fn present_dropped_focus_lost_roundtrips_sds_6_2_present() {
 }
 
 #[test]
-fn present_dropped_blanked_roundtrips_sds_6_2_present() {
+fn present_dropped_blanked_roundtrips() {
     let j = json!({
         "event": "present.dropped",
         "seq": 45,
@@ -92,19 +89,19 @@ fn present_dropped_blanked_roundtrips_sds_6_2_present() {
     roundtrip_event(&j);
 }
 
-/// SDS v6 §6.2 pins the **remote `present.dropped`** reason vocabulary to
+/// pins the **remote `present.dropped`** reason vocabulary to
 /// exactly `too_late | fragmented | focus_lost` — `blanked` is not part of
 /// that vocabulary in v6 (blanking does not affect remote-drop accounting;
 /// a blanked focused app keeps presenting and its frames are still
 /// `displayed`/`dropped` per the normal rules). This test pins the three
 /// v6 values round-tripping; `PresentDroppedReason::Blanked` remains a
 /// representable variant (shared with `buffer.release`'s closed reason set,
-/// SDS §5.1/§5.12) but `cubed` does not construct
+///) but `cubed` does not construct
 /// `present.dropped {reason:"blanked"}` — see
-/// `present_dropped_blanked_roundtrips_sds_6_2_present` above, which only
+/// `present_dropped_blanked_roundtrips` above, which only
 /// pins that the *type* can represent it, not that v6 emits it.
 #[test]
-fn present_dropped_v6_reason_vocabulary_is_exactly_three_values_sds_6_2() {
+fn present_dropped_v6_reason_vocabulary_is_exactly_three_values() {
     for reason in ["too_late", "fragmented", "focus_lost"] {
         let j = json!({"event": "present.dropped", "seq": 1, "reason": reason});
         roundtrip_event(&j);
@@ -112,11 +109,11 @@ fn present_dropped_v6_reason_vocabulary_is_exactly_three_values_sds_6_2() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. Event::RemoteFramesDropped  (SDS §6.2)
+// 4. Event::RemoteFramesDropped
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn remote_frames_dropped_roundtrips_sds_6_2_counters() {
+fn remote_frames_dropped_roundtrips() {
     let j = json!({
         "event": "remote.frames_dropped",
         "client": "snake",
@@ -127,11 +124,11 @@ fn remote_frames_dropped_roundtrips_sds_6_2_counters() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. Event::ClientStats  (SDS §5.11, §6.2)
+// 5. Event::ClientStats
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn client_stats_with_latency_roundtrips_sds_5_11_stats() {
+fn client_stats_with_latency_roundtrips() {
     let j = json!({
         "event": "client.stats",
         "client": "snake",
@@ -143,7 +140,7 @@ fn client_stats_with_latency_roundtrips_sds_5_11_stats() {
 }
 
 #[test]
-fn client_stats_without_latency_roundtrips_sds_5_11_stats() {
+fn client_stats_without_latency_roundtrips() {
     let j = json!({
         "event": "client.stats",
         "client": "snake",
@@ -160,11 +157,11 @@ fn client_stats_without_latency_roundtrips_sds_5_11_stats() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. Request::Register backwards-compat session_token  (SDS §6.1)
+// 6. Request::Register backwards-compat session_token
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn register_without_session_token_roundtrips_sds_6_1_register() {
+fn register_without_session_token_roundtrips() {
     let j = json!({
         "id": 1,
         "cmd": "register",
@@ -180,7 +177,7 @@ fn register_without_session_token_roundtrips_sds_6_1_register() {
 }
 
 #[test]
-fn register_with_session_token_roundtrips_sds_6_1_register() {
+fn register_with_session_token_roundtrips() {
     let j = json!({
         "id": 2,
         "cmd": "register",
@@ -197,7 +194,7 @@ fn register_with_session_token_roundtrips_sds_6_1_register() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. cube_proto::frame_header  (SDS §6.2)
+// 7. cube_proto::frame_header
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn good_header(seq: u32) -> FrameHeader {
@@ -210,13 +207,13 @@ fn good_header(seq: u32) -> FrameHeader {
 }
 
 #[test]
-fn frame_header_constants_sds_6_2_layout() {
+fn frame_header_constants() {
     assert_eq!(FRAME_HEADER_MAGIC, 0x4355_4246, "magic = 'CUBF' big-endian");
     assert_eq!(FRAME_HEADER_BYTES, 16, "header is exactly 16 bytes");
 }
 
 #[test]
-fn frame_header_encode_decode_roundtrips_sds_6_2_layout() {
+fn frame_header_encode_decode_roundtrips() {
     let h = good_header(1);
     let bytes = h.encode();
     assert_eq!(bytes.len(), FRAME_HEADER_BYTES);
@@ -228,7 +225,7 @@ fn frame_header_encode_decode_roundtrips_sds_6_2_layout() {
 }
 
 #[test]
-fn frame_header_encodes_little_endian_magic_sds_6_2_layout() {
+fn frame_header_encodes_little_endian_magic() {
     let h = good_header(1);
     let bytes = h.encode();
     // 0x43554246 little-endian = [0x46, 0x42, 0x55, 0x43]
@@ -240,7 +237,7 @@ fn frame_header_encodes_little_endian_magic_sds_6_2_layout() {
 }
 
 #[test]
-fn frame_header_rejects_bad_magic_sds_6_2_layout() {
+fn frame_header_rejects_bad_magic() {
     let h = FrameHeader {
         magic: 0xDEAD_BEEF,
         seq: 1,
@@ -253,7 +250,7 @@ fn frame_header_rejects_bad_magic_sds_6_2_layout() {
 }
 
 #[test]
-fn frame_header_rejects_nonzero_reserved_sds_6_2_layout() {
+fn frame_header_rejects_nonzero_reserved() {
     // Non-zero at offset 8 (reserved2)
     let h = FrameHeader {
         magic: FRAME_HEADER_MAGIC,
@@ -284,37 +281,34 @@ fn frame_header_rejects_nonzero_reserved_sds_6_2_layout() {
 }
 
 #[test]
-fn frame_header_rejects_short_buffer_sds_6_2_layout() {
+fn frame_header_rejects_short_buffer() {
     let bytes = [0u8; 15];
     let err = FrameHeader::decode(&bytes).expect_err("short buffer must error");
     assert!(matches!(err, FrameHeaderError::ShortBuffer), "got {err:?}");
 }
 
 #[test]
-fn seq_guard_accepts_monotonic_sds_6_2_seq() {
+fn seq_guard_accepts_monotonic() {
     let mut g = SeqGuard::new(0);
     g.check(10).expect("first seq always ok");
     g.check(11).expect("monotonic seq ok");
 }
 
 #[test]
-fn seq_guard_rejects_backwards_sds_6_2_seq() {
+fn seq_guard_rejects_backwards() {
     let mut g = SeqGuard::new(0);
     g.check(10).expect("first seq always ok");
     let err = g.check(5).expect_err("backwards seq must error");
-    assert!(
-        matches!(err, FrameHeaderError::BackwardsSeq),
-        "got {err:?}"
-    );
+    assert!(matches!(err, FrameHeaderError::BackwardsSeq), "got {err:?}");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 8. REMOTE_FRAME_PAYLOAD_BYTES  (SDS §6.2)
+// 8. REMOTE_FRAME_PAYLOAD_BYTES
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 #[allow(clippy::assertions_on_constants)]
-fn remote_frame_payload_bytes_constant_sds_6_2_layout() {
+fn remote_frame_payload_bytes_constant() {
     assert_eq!(cube_proto::REMOTE_FRAME_PAYLOAD_BYTES, 49_152);
     // sanity: REMOTE_FRAME_PAYLOAD_BYTES is a separate envelope from the JSON
     // line cap. We only assert they're different to catch accidental aliasing.
@@ -327,24 +321,24 @@ fn remote_frame_payload_bytes_constant_sds_6_2_layout() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. cube_proto::session_token  (SDS §6.2)
+// 9. cube_proto::session_token
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn session_token_accepts_16_bytes_sds_6_2_token() {
+fn session_token_accepts_16_bytes() {
     let token = URL_SAFE_NO_PAD.encode([7u8; 16]);
     validate_session_token(&token).expect("16-byte token must validate");
 }
 
 #[test]
-fn session_token_rejects_15_bytes_sds_6_2_token() {
+fn session_token_rejects_15_bytes() {
     let token = URL_SAFE_NO_PAD.encode([7u8; 15]);
     let err = validate_session_token(&token).expect_err("15-byte token must error");
     assert!(matches!(err, SessionTokenError::TooShort), "got {err:?}");
 }
 
 #[test]
-fn session_token_rejects_invalid_base64_sds_6_2_token() {
+fn session_token_rejects_invalid_base64() {
     let err = validate_session_token("!!!").expect_err("non-base64url must error");
     assert!(
         matches!(err, SessionTokenError::InvalidBase64),
@@ -353,7 +347,7 @@ fn session_token_rejects_invalid_base64_sds_6_2_token() {
 }
 
 #[test]
-fn session_token_rejects_empty_sds_6_2_token() {
+fn session_token_rejects_empty() {
     let err = validate_session_token("").expect_err("empty token must error");
     assert!(
         matches!(
@@ -365,11 +359,11 @@ fn session_token_rejects_empty_sds_6_2_token() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 10. Event::FrameStreamBound  (SDS v5 §6.2)
+// 10. Event::FrameStreamBound
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn frame_stream_bound_event_roundtrips_sds_6_2() {
+fn frame_stream_bound_event_roundtrips() {
     let j = serde_json::json!({
         "event": "frame_stream.bound",
         "max_inflight": 1,
@@ -381,20 +375,20 @@ fn frame_stream_bound_event_roundtrips_sds_6_2() {
     assert_eq!(serde_json::to_value(&e).unwrap(), j);
 }
 
-// ── Handshake datagram (SDS v5 §6.2) ────────────────────────────────────────
+// ── Handshake datagram ────────────────────────────────────────
 
 use cube_proto::handshake_datagram::{
-    HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC,
+    HANDSHAKE_BYTES, HANDSHAKE_MAGIC, HandshakeDatagram, HandshakeError,
 };
 
 #[test]
-fn handshake_datagram_constants_sds_6_2() {
+fn handshake_datagram_constants() {
     assert_eq!(HANDSHAKE_MAGIC, 0x4355_4248);
     assert_eq!(HANDSHAKE_BYTES, 36);
 }
 
 #[test]
-fn handshake_datagram_encode_decode_roundtrips_sds_6_2() {
+fn handshake_datagram_encode_decode_roundtrips() {
     let token = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
     let hd = HandshakeDatagram {
         magic: HANDSHAKE_MAGIC,
@@ -412,13 +406,13 @@ fn handshake_datagram_encode_decode_roundtrips_sds_6_2() {
 }
 
 #[test]
-fn handshake_datagram_rejects_short_buffer_sds_6_2() {
+fn handshake_datagram_rejects_short_buffer() {
     let err = HandshakeDatagram::decode(&[0u8; 35]).unwrap_err();
     assert_eq!(err, HandshakeError::ShortBuffer);
 }
 
 #[test]
-fn handshake_datagram_rejects_bad_magic_sds_6_2() {
+fn handshake_datagram_rejects_bad_magic() {
     let mut bytes = [0u8; 36];
     bytes[0..4].copy_from_slice(&0xDEAD_BEEFu32.to_le_bytes());
     let err = HandshakeDatagram::decode(&bytes).unwrap_err();
@@ -426,7 +420,7 @@ fn handshake_datagram_rejects_bad_magic_sds_6_2() {
 }
 
 #[test]
-fn handshake_datagram_rejects_nonzero_flags_sds_6_2() {
+fn handshake_datagram_rejects_nonzero_flags() {
     let token = [0u8; 16];
     // Hand-encode a datagram with flags=1; decode should reject it.
     let mut bytes = [0u8; 36];
@@ -442,7 +436,7 @@ fn handshake_datagram_rejects_nonzero_flags_sds_6_2() {
 }
 
 #[test]
-fn handshake_datagram_rejects_unsupported_format_sds_6_2() {
+fn handshake_datagram_rejects_unsupported_format() {
     let token = [0u8; 16];
     let mut bytes = [0u8; 36];
     bytes[0..4].copy_from_slice(&HANDSHAKE_MAGIC.to_le_bytes());
@@ -457,7 +451,7 @@ fn handshake_datagram_rejects_unsupported_format_sds_6_2() {
 }
 
 #[test]
-fn handshake_datagram_rejects_bad_dimensions_sds_6_2() {
+fn handshake_datagram_rejects_bad_dimensions() {
     let token = [0u8; 16];
     let mut bytes = [0u8; 36];
     bytes[0..4].copy_from_slice(&HANDSHAKE_MAGIC.to_le_bytes());
@@ -471,9 +465,11 @@ fn handshake_datagram_rejects_bad_dimensions_sds_6_2() {
 }
 
 #[test]
-fn handshake_datagram_session_token_roundtrips_sds_6_2() {
-    let token: [u8; 16] = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22,
-                            0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00];
+fn handshake_datagram_session_token_roundtrips() {
+    let token: [u8; 16] = [
+        0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99,
+        0x00,
+    ];
     let hd = HandshakeDatagram {
         magic: HANDSHAKE_MAGIC,
         flags: 0,

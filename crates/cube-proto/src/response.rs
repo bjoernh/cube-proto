@@ -1,4 +1,4 @@
-//! Response envelope (SDS §5.3).
+//! Response envelope.
 //!
 //! `{"id": u64, "ok": bool, …}` where the remainder depends on `ok`:
 //!   - `ok: true`  → optional `"result"` field (any JSON value)

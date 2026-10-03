@@ -1,4 +1,4 @@
-//! RED contract for cube-config's emission surface (SDS §7.2; cubekit-spec §9.4).
+//! Contract tests for cube-config's emission surface.
 //!
 //! The SDK's "agree by construction" promise is that the same crate that *loads*
 //! `manifest.toml` / `schema.toml` also *emits* them, so an emitter and loader
@@ -83,7 +83,7 @@ fn manifest_to_toml_is_stable_and_sorted() {
     assert!(!a.contains("icon"), "absent icon is not emitted:\n{a}");
 }
 
-/// SDS v7.1 §A1: the four metadata fields (`accent`/`description`/`preview`/
+///: the four metadata fields (`accent`/`description`/`preview`/
 /// `players`) emit and round-trip through the loader. `players` emits as an
 /// inline table `{ min, max }`.
 #[test]
@@ -115,19 +115,25 @@ fn manifest_to_toml_round_trips_the_a1_metadata_fields() {
         !toml.contains("[app.players]"),
         "players must not emit as a sub-section, got:\n{toml}"
     );
-    assert!(toml.contains("accent = \"green\""), "accent token lowercase:\n{toml}");
+    assert!(
+        toml.contains("accent = \"green\""),
+        "accent token lowercase:\n{toml}"
+    );
 
     let (_dir, path) = write_tmp("manifest.toml", &toml);
     let back = load_manifest(&path).expect("emitted enriched manifest must parse");
     assert_eq!(back.app.accent, Some(Accent::Green));
-    assert_eq!(back.app.description.as_deref(), Some("Classic snake, six faces"));
+    assert_eq!(
+        back.app.description.as_deref(),
+        Some("Classic snake, six faces")
+    );
     assert_eq!(back.app.preview.as_deref(), Some("preview.gif"));
     assert_eq!(back.app.players, Some(Players { min: 1, max: 1 }));
 }
 
-/// SDS v6 §7.2: `cubego` is the third alternative SDK-compat field — it emits
+///: `cubego` is the third alternative SDK-compat field — it emits
 /// and round-trips through the loader exactly like `libcube`/`cubekit`
-/// (cube#71).
+///.
 #[test]
 fn manifest_to_toml_round_trips_the_cubego_sdk_requirement() {
     let mut m = sample_manifest();
@@ -136,8 +142,14 @@ fn manifest_to_toml_round_trips_the_cubego_sdk_requirement() {
     requires.cubego = Some(VersionReq::parse("0.3").unwrap());
 
     let toml = manifest_to_toml(&m);
-    assert!(toml.contains("cubego = "), "cubego must be emitted:\n{toml}");
-    assert!(!toml.contains("cubekit"), "absent cubekit not emitted:\n{toml}");
+    assert!(
+        toml.contains("cubego = "),
+        "cubego must be emitted:\n{toml}"
+    );
+    assert!(
+        !toml.contains("cubekit"),
+        "absent cubekit not emitted:\n{toml}"
+    );
 
     let (_dir, path) = write_tmp("manifest.toml", &toml);
     let back = load_manifest(&path).expect("emitted cubego manifest must parse");
@@ -147,7 +159,7 @@ fn manifest_to_toml_round_trips_the_cubego_sdk_requirement() {
     assert!(req.cubekit.is_none());
 }
 
-/// SDS v7.1 §A1: all four §A1 fields are omitted from emitted TOML when unset.
+///: all four fields are omitted from emitted TOML when unset.
 #[test]
 fn manifest_to_toml_omits_absent_a1_metadata_fields() {
     let a = manifest_to_toml(&sample_manifest());
@@ -177,7 +189,10 @@ fn schema_to_toml_round_trips_through_the_loader() {
     assert!(back.params.contains_key("grains"));
     assert_eq!(back.params["grains"].ty, ParamType::Int);
     assert!(back.params.contains_key("load"));
-    assert!(back.params["load"].readonly, "readonly flag survives the round trip");
+    assert!(
+        back.params["load"].readonly,
+        "readonly flag survives the round trip"
+    );
     assert!(back.params.contains_key("label"));
 }
 

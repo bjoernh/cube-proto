@@ -1,6 +1,6 @@
-//! Import validation produces structured warnings (SDS §5.5).
+//! Import validation produces structured warnings.
 //!
-//! SDS §5.5 defines four warning codes:
+//! defines four warning codes:
 //!
 //! - `UNKNOWN_DROPPED` — key not declared in the schema.
 //! - `CLAMPED`         — value clamped into the schema range (with `from`/`to`).
@@ -18,7 +18,7 @@ use cube_proto::ParamValue;
 const FIXTURE: &str = include_str!("fixtures/import_warnings.toml");
 
 #[test]
-fn import_emits_all_four_warning_codes_sds_5_5() {
+fn import_emits_all_four_warning_codes() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, _ur) = common::make_store(tmp.path(), "x");
     let schema = common::schema_for_warnings("x", 1);
@@ -33,18 +33,31 @@ fn import_emits_all_four_warning_codes_sds_5_5() {
         .iter()
         .map(|w| (w.code, w.key.as_str()))
         .collect();
-    assert!(by_code.contains(&(WarningCode::Clamped, "speed")), "{by_code:?}");
-    assert!(by_code.contains(&(WarningCode::UnknownDropped, "old_param")), "{by_code:?}");
-    assert!(by_code.contains(&(WarningCode::ReadonlyDropped, "gamma")), "{by_code:?}");
+    assert!(
+        by_code.contains(&(WarningCode::Clamped, "speed")),
+        "{by_code:?}"
+    );
+    assert!(
+        by_code.contains(&(WarningCode::UnknownDropped, "old_param")),
+        "{by_code:?}"
+    );
+    assert!(
+        by_code.contains(&(WarningCode::ReadonlyDropped, "gamma")),
+        "{by_code:?}"
+    );
     assert!(
         by_code.contains(&(WarningCode::NonShareableDropped, "device_id")),
         "{by_code:?}",
     );
-    assert_eq!(report.warnings.len(), 4, "expected exactly 4 warnings, got {by_code:?}");
+    assert_eq!(
+        report.warnings.len(),
+        4,
+        "expected exactly 4 warnings, got {by_code:?}"
+    );
 }
 
 #[test]
-fn import_clamp_warning_carries_from_to_detail_sds_5_5() {
+fn import_clamp_warning_carries_from_to_detail() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, _ur) = common::make_store(tmp.path(), "x");
     let schema = common::schema_for_warnings("x", 1);
@@ -58,14 +71,24 @@ fn import_clamp_warning_carries_from_to_detail_sds_5_5() {
         .iter()
         .find(|w| w.code == WarningCode::Clamped)
         .expect("CLAMPED entry must exist");
-    let from = clamp.detail.get("from").expect("CLAMPED.detail.from required").as_i64().unwrap();
-    let to = clamp.detail.get("to").expect("CLAMPED.detail.to required").as_i64().unwrap();
+    let from = clamp
+        .detail
+        .get("from")
+        .expect("CLAMPED.detail.from required")
+        .as_i64()
+        .unwrap();
+    let to = clamp
+        .detail
+        .get("to")
+        .expect("CLAMPED.detail.to required")
+        .as_i64()
+        .unwrap();
     assert_eq!(from, 999, "from must equal raw preset value");
     assert_eq!(to, 10, "to must equal clamped schema-max");
 }
 
 #[test]
-fn import_final_params_reflects_clamps_and_drops_sds_5_5() {
+fn import_final_params_reflects_clamps_and_drops() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, _ur) = common::make_store(tmp.path(), "x");
     let schema = common::schema_for_warnings("x", 1);
@@ -75,11 +98,17 @@ fn import_final_params_reflects_clamps_and_drops_sds_5_5() {
         .expect("import must succeed");
 
     // Kept and clamped:
-    assert_eq!(report.final_params.get("brightness"), Some(&ParamValue::Int(5)));
+    assert_eq!(
+        report.final_params.get("brightness"),
+        Some(&ParamValue::Int(5))
+    );
     assert_eq!(report.final_params.get("speed"), Some(&ParamValue::Int(10)));
 
     // Dropped:
-    assert!(!report.final_params.contains_key("gamma"), "gamma must be dropped (readonly)");
+    assert!(
+        !report.final_params.contains_key("gamma"),
+        "gamma must be dropped (readonly)"
+    );
     assert!(
         !report.final_params.contains_key("device_id"),
         "device_id must be dropped (non-shareable)",
@@ -91,10 +120,16 @@ fn import_final_params_reflects_clamps_and_drops_sds_5_5() {
 }
 
 #[test]
-fn warning_code_serializes_as_screaming_snake_sds_5_5() {
-    // SDS §5.5 shows the wire codes are SCREAMING_SNAKE_CASE strings.
-    assert_eq!(serde_json::to_string(&WarningCode::UnknownDropped).unwrap(), "\"UNKNOWN_DROPPED\"");
-    assert_eq!(serde_json::to_string(&WarningCode::Clamped).unwrap(), "\"CLAMPED\"");
+fn warning_code_serializes_as_screaming_snake() {
+    // shows the wire codes are SCREAMING_SNAKE_CASE strings.
+    assert_eq!(
+        serde_json::to_string(&WarningCode::UnknownDropped).unwrap(),
+        "\"UNKNOWN_DROPPED\""
+    );
+    assert_eq!(
+        serde_json::to_string(&WarningCode::Clamped).unwrap(),
+        "\"CLAMPED\""
+    );
     assert_eq!(
         serde_json::to_string(&WarningCode::ReadonlyDropped).unwrap(),
         "\"READONLY_DROPPED\"",
@@ -106,7 +141,7 @@ fn warning_code_serializes_as_screaming_snake_sds_5_5() {
 }
 
 #[test]
-fn import_type_mismatch_returns_etype_sds_5_5() {
+fn import_type_mismatch_returns_etype() {
     // `speed` is int in the schema but supplied as a string here.
     const BODY: &str = r#"
 [meta]
@@ -126,5 +161,8 @@ speed = { type = "string", value = "fast" }
     let err = store
         .import("x", "etype", BODY, &schema, PresetOrigin::User)
         .expect_err("type mismatch must error");
-    assert!(matches!(err, cube_presets::PresetError::TypeMismatch(_)), "{err:?}");
+    assert!(
+        matches!(err, cube_presets::PresetError::TypeMismatch(_)),
+        "{err:?}"
+    );
 }

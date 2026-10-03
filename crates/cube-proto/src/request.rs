@@ -1,4 +1,4 @@
-//! Command request envelope (SDS §5.3, §5.4, §5.5, §5.7.1, §5.10, §6.1).
+//! Command request envelope.
 //!
 //! `Request` is an internally-tagged enum where the `"cmd"` field selects the
 //! variant. Each variant carries its fields inline (struct variant).  The
@@ -18,18 +18,13 @@ use serde::{Deserialize, Serialize};
 use crate::input::BindingScope;
 use crate::value::{Color, Damage, Format, ParamValue};
 
-/// `result` body of the `hello` OK response (SDS §5.3; SDS v6 delta §7).
+/// `result` body of the `hello` OK response.
 ///
-/// Today `cubed` replies to a compatible `hello` with an empty
-/// `{"id":..,"ok":true}` (no `result`) — see `cubed`'s
-/// `control_plane::handshake::do_handshake_sync`, which calls
-/// `send_ok_sync(fd, id)`. This type is the v6 wire shape for a richer OK
-/// response that lets a client (e.g. `cubekit`) read back `cubed`'s
-/// advertised protocol version and detect the v6 surface, per delta §7 /
-/// cubekit spec §3.5. Wiring `cubed`'s handshake to actually send this body
-/// is a daemon-wave change (see the `// TODO(sds-v6 2.1)` left in
-/// `handshake.rs`); this crate defines the type + round-trips it now so both
-/// sides share one source of truth ([`crate::PROTOCOL_VERSION`]).
+/// Older daemons reply to a compatible `hello` with an empty
+/// `{"id":..,"ok":true}` (no `result`). This type is the v6 wire shape for a
+/// richer OK response that lets a client (e.g. `cubekit`) read back the
+/// daemon's advertised protocol version and detect the v6 surface. Both sides
+/// share one source of truth ([`crate::PROTOCOL_VERSION`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HelloResult {
     /// `cubed`'s advertised protocol version, `"<major>.<minor>"`
@@ -40,7 +35,7 @@ pub struct HelloResult {
     /// `protocol_version` minor can ignore this.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface: Option<String>,
-    /// Compositor capability discovery (SDS v7 §5.13, D8). Advertises which
+    /// Compositor capability discovery. Advertises which
     /// transition kinds this daemon actually implements and whether the client
     /// overlay surface is available, so a client can degrade **deliberately**
     /// (pick a supported kind up front) instead of relying on the daemon's
@@ -52,7 +47,7 @@ pub struct HelloResult {
 }
 
 /// Compositor capabilities advertised in the `hello` OK response
-/// (SDS v7 §5.13, D8). One source of truth shared by `cubed` (which builds it
+/// One source of truth shared by `cubed` (which builds it
 /// from [`Capabilities::current`]) and every client that reads it back.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Capabilities {
@@ -79,14 +74,14 @@ impl Capabilities {
     }
 }
 
-/// Transition **kind** requested on a focus change (SDS v7 §5.13, §6.1).
+/// Transition **kind** requested on a focus change.
 ///
 /// `cut` | `crossfade` plus the crossfade-family effects `dissolve` |
 /// `dip_to_black` | `particle_dissolve` | `push` — all the same machinery with a
 /// different per-pixel sample arm (added without a protocol change). `cut` (or
 /// `duration_ms = 0`) is the hard-cut opt-out that reproduces v6's abrupt swap.
 ///
-/// **Decode is lenient** (SDS v7 §5.13, D8): an unrecognized wire token
+/// **Decode is lenient**: an unrecognized wire token
 /// deserializes to [`TransitionKind::Cut`] rather than hard-failing the whole
 /// enclosing `launch`/`focus` request, so a newer client naming a kind this
 /// daemon does not know still gets a safe hard cut instead of an `EBADREQ`.
@@ -151,7 +146,7 @@ impl TransitionKind {
     }
 }
 
-/// Lenient decode (SDS v7 §5.13, D8): a known `snake_case` token maps to its
+/// Lenient decode: a known `snake_case` token maps to its
 /// variant; **any other string** maps to [`TransitionKind::Cut`] so an unknown
 /// kind never hard-fails the enclosing request. Non-string JSON is still a type
 /// error.
@@ -178,13 +173,13 @@ impl<'de> Deserialize<'de> for TransitionKind {
 }
 
 /// Animated transition requested by the client that initiates a focus change,
-/// carried on `launch` / `focus` (SDS v7 §5.13, §6.1). Optional on both verbs;
+/// carried on `launch` / `focus`. Optional on both verbs;
 /// absent ⇒ `cubed` applies its configured default. `duration_ms` is clamped to
 /// a sane range by `cubed` and omitted on the wire when unset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransitionSpec {
-    /// `cut` | `crossfade` (§6.1).
+    /// `cut` | `crossfade`.
     pub kind: TransitionKind,
     /// Transition window in milliseconds. Absent ⇒ `cubed`'s configured
     /// default; `0` is equivalent to `cut`.
@@ -192,11 +187,11 @@ pub struct TransitionSpec {
     pub duration_ms: Option<u32>,
 }
 
-/// Input mode requested at `overlay.acquire` (SDS v7 §5.13, §6.1, §5.7.1).
+/// Input mode requested at `overlay.acquire`.
 ///
 /// `none` is a purely visual overlay — input continues to the base app; `modal`
 /// pushes an input grab so non-reserved controller events route to the overlay
-/// owner while it is shown (§5.7.1). Serializes to/from `"none"` | `"modal"`.
+/// owner while it is shown. Serializes to/from `"none"` | `"modal"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OverlayInputMode {
@@ -224,7 +219,7 @@ pub enum Request {
     },
 
     /// Inject a synthetic input event (admin plane only; cube-sim design
-    /// §6.2). `type`/`code` use the same wire vocabulary `input.event`
+    ///). `type`/`code` use the same wire vocabulary `input.event`
     /// emits (`key`/`abs`, `btn_a`/`abs_hat0x`/…); `player` is the slot the
     /// event is attributed to. The event enters the daemon's normal
     /// classify → route → deliver path, so reserved keys, player slots and
@@ -257,7 +252,7 @@ pub enum Request {
         id: u64,
         app: String,
         /// Optional transition for the focus change this launch causes
-        /// (SDS v7 §5.13, §6.1). Absent ⇒ `cubed`'s configured default.
+        /// Absent ⇒ `cubed`'s configured default.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transition: Option<TransitionSpec>,
     },
@@ -273,7 +268,7 @@ pub enum Request {
     Focus {
         id: u64,
         app: String,
-        /// Optional transition for this focus change (SDS v7 §5.13, §6.1).
+        /// Optional transition for this focus change.
         /// Absent ⇒ `cubed`'s configured default; ignored if the visible base
         /// does not actually change.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -310,7 +305,7 @@ pub enum Request {
         buffer_id: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
         damage: Option<Damage>,
-        /// Which compositor layer this buffer updates (SDS v7 §5.13, §6.1).
+        /// Which compositor layer this buffer updates.
         /// Absent or `0` is the connection's **base** layer (the v6 behaviour);
         /// a `layer` id returned by `overlay.acquire` targets that overlay layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -347,11 +342,11 @@ pub enum Request {
         key: Option<String>,
     },
 
-    /// Subscribe to an event stream (SDS v6 §5.13 "The commands").
+    /// Subscribe to an event stream.
     ///
     /// The legacy v5 param-watch shape `{id, app}` round-trips byte-identically:
     /// `app` defaults to `"*"` on parse and is always re-serialized, while every
-    /// §5.13 field is omitted from the wire when unset. New fields:
+    /// field is omitted from the wire when unset. New fields:
     /// `events` (class filter), `interval_ms` (telemetry coalescing cadence),
     /// `snapshot` (request a baseline [`crate::SubscribeResult`] snapshot),
     /// `max_events` / `timeout_ms` (bounded subscriptions).
@@ -372,7 +367,7 @@ pub enum Request {
         timeout_ms: Option<u64>,
     },
 
-    /// Cancel a subscription (SDS v6 §5.13 "The commands").
+    /// Cancel a subscription.
     ///
     /// Targets one subscription by `sub_id`, all of a connection's
     /// subscriptions with `all: true`, or — for the legacy v5 param-watch shape
@@ -389,8 +384,7 @@ pub enum Request {
         all: bool,
     },
 
-    /// List this connection's active subscriptions (SDS v6 §5.13
-    /// "The commands"): an introspection verb for debugging the subscription
+    /// List this connection's active subscriptions: an introspection verb for debugging the subscription
     /// surface.
     #[serde(rename = "subscriptions")]
     Subscriptions { id: u64 },
@@ -421,7 +415,7 @@ pub enum Request {
         toml: String,
         /// On-cube preset name override (App-Store M6). When absent the name
         /// is derived from the TOML's `meta.preset_name` — which is display
-        /// text and may violate the SDS §5.5 name rule; store imports pass
+        /// text and may violate the name rule; store imports pass
         /// their slug here instead.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         name: Option<String>,
@@ -442,12 +436,12 @@ pub enum Request {
     DoctorReport { id: u64 },
 
     // ── Power (admin) ─────────────────────────────────────────────────────────
-    /// Admin-only (SDS v6 §5.12): immediately blank the display, idempotent.
+    /// Admin-only: immediately blank the display, idempotent.
     /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
     #[serde(rename = "power.blank")]
     PowerBlank { id: u64 },
 
-    /// Admin-only (SDS v6 §5.12): immediately wake the display, idempotent.
+    /// Admin-only: immediately wake the display, idempotent.
     /// `EBADREQ` on app connections — enforced by `cubed`, not this crate.
     #[serde(rename = "power.wake")]
     PowerWake { id: u64 },
@@ -484,8 +478,8 @@ pub enum Request {
         timeout_secs: Option<u32>,
     },
 
-    // ── System text overlay (admin peers only — SDS v7 §5.13, §6.1) ───────────
-    /// Render a line of text into a system overlay layer (SDS v7 §6.1). No
+    // ── System text overlay (admin peers only —) ───────────
+    /// Render a line of text into a system overlay layer. No
     /// buffer / `SCM_RIGHTS` — `cubed` renders the text itself through its glyph
     /// renderer, so it works on `/run/cube/admin` (STREAM). Admin-only:
     /// `EBADREQ` on app connections (like `power.blank`) — enforced by `cubed`.
@@ -505,7 +499,7 @@ pub enum Request {
         color: Option<Color>,
     },
 
-    /// Remove a system text overlay (SDS v7 §6.1). `z` selects the layer to
+    /// Remove a system text overlay. `z` selects the layer to
     /// clear; omitted clears all admin text overlays. Admin-only — `EBADREQ` on
     /// app connections.
     #[serde(rename = "overlay.clear")]
@@ -515,12 +509,12 @@ pub enum Request {
         z: Option<i32>,
     },
 
-    // ── Client overlays (apps / launcher on /run/cube/ctl — SDS v7 §5.13, §6.1) ─
-    /// Acquire a client overlay layer (SDS v7 §5.13, §6.1). The OK `result`
+    // ── Client overlays (apps / launcher on /run/cube/ctl —) ─
+    /// Acquire a client overlay layer. The OK `result`
     /// carries the assigned `{layer}` id, used on a subsequent `present {layer}`
     /// and on `overlay.release`. `z` (default 1) is the stacking order among
     /// overlays; `input` (default `none`) is the input mode — `modal` grabs
-    /// controller input while the overlay is shown (§5.7.1). A client without
+    /// controller input while the overlay is shown. A client without
     /// overlay capability is rejected with `EPERM`.
     #[serde(rename = "overlay.acquire")]
     OverlayAcquire {
@@ -532,7 +526,7 @@ pub enum Request {
     },
 
     /// Release a client overlay layer acquired with `overlay.acquire`
-    /// (SDS v7 §5.13, §6.1). `layer` is the id returned by `overlay.acquire`.
+    /// `layer` is the id returned by `overlay.acquire`.
     #[serde(rename = "overlay.release")]
     OverlayRelease { id: u64, layer: u32 },
 
@@ -594,7 +588,7 @@ pub enum Request {
     },
 }
 
-/// Default `app` selector for [`Request::Subscribe`] (SDS v6 §5.13): a client
+/// Default `app` selector for [`Request::Subscribe`]: a client
 /// that omits `app` subscribes to global event classes across all apps.
 fn subscribe_app_default() -> String {
     "*".to_owned()

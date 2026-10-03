@@ -3,18 +3,16 @@
 //! deserializes it into the appropriate `cube_proto` type, re-serializes, and
 //! compares the resulting `serde_json::Value` to the original.
 //!
-//! Naming convention: `<thing>_<form>_roundtrips_sds_<sec>_<sub>` /
-//! `_arch_<sec>_<sub>` per the test plan.
+//! Naming convention: `<thing>_<form>_roundtrips`.
 //!
 //! Deviations from the issue prompt:
-//! - For `Request`/`Event` we wrap the SDS-literal JSON in the envelope keys
-//!   they actually carry on the wire (`id`, `cmd`/`event`, etc.). The SDS shows
+//! - For `Request`/`Event` we wrap the spec-literal JSON in the envelope keys
+//!   they actually carry on the wire (`id`, `cmd`/`event`, etc.). The spec shows
 //!   most worked examples already complete; we keep them verbatim.
 //! - Some commands ("focus", "stop", "restart", "journal", "preset.*",
-//!   "brightness.set", "doctor.report", etc.) do not have inline SDS literals,
-//!   so we synthesise minimal but normative-shape literals from §5.3 and
-//!   ARCH §8.4 (command surface). Those literal shapes are the contract this
-//!   test file pins for the implementation agent.
+//!   "brightness.set", "doctor.report", etc.) do not have inline spec literals,
+//!   so we synthesise minimal but normative-shape literals from the command
+//!   surface. Those literal shapes are the contract this test file pins.
 
 use serde_json::{Value, json};
 
@@ -59,11 +57,11 @@ fn roundtrip_response(j: &Value) -> Value {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Session: hello, register   (SDS §5.3)
+// Session: hello, register
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn hello_request_roundtrips_sds_5_3() {
+fn hello_request_roundtrips() {
     let j = json!({
         "id": 1,
         "cmd": "hello",
@@ -73,8 +71,8 @@ fn hello_request_roundtrips_sds_5_3() {
 }
 
 #[test]
-fn hello_request_v6_minor_roundtrips_sds_5_3() {
-    // SDS v6 delta §7: v6 is a minor bump within major 1; a `hello` quoting
+fn hello_request_v6_minor_roundtrips() {
+    // v6 is a minor bump within major 1; a `hello` quoting
     // the full v6 wire version (cube_proto::PROTOCOL_VERSION) round-trips
     // identically to any other protocol_version string.
     let j = json!({
@@ -86,8 +84,8 @@ fn hello_request_v6_minor_roundtrips_sds_5_3() {
 }
 
 #[test]
-fn hello_result_roundtrips_sds_5_3_v6_delta_7() {
-    // SDS v6 delta §7 / cubekit spec §3.5: the hello OK response carries
+fn hello_result_roundtrips() {
+    // the hello OK response carries
     // cubed's advertised protocol version + surface marker.
     let j = json!({
         "protocol_version": "1.1",
@@ -101,7 +99,7 @@ fn hello_result_roundtrips_sds_5_3_v6_delta_7() {
 }
 
 #[test]
-fn hello_result_without_surface_omits_field_sds_5_3_v6_delta_7() {
+fn hello_result_without_surface_omits_field() {
     // `surface` is optional / `skip_serializing_if` so older clients that
     // only read `protocol_version` see a minimal body.
     let r = HelloResult {
@@ -116,7 +114,7 @@ fn hello_result_without_surface_omits_field_sds_5_3_v6_delta_7() {
 }
 
 #[test]
-fn response_ok_with_hello_result_roundtrips_sds_5_3_v6_delta_7() {
+fn response_ok_with_hello_result_roundtrips() {
     let j = json!({
         "id": 1,
         "ok": true,
@@ -126,7 +124,7 @@ fn response_ok_with_hello_result_roundtrips_sds_5_3_v6_delta_7() {
 }
 
 #[test]
-fn register_request_roundtrips_sds_5_3() {
+fn register_request_roundtrips() {
     let j = json!({
         "id": 2,
         "cmd": "register",
@@ -137,7 +135,7 @@ fn register_request_roundtrips_sds_5_3() {
 }
 
 #[test]
-fn register_request_dev_mode_roundtrips_sds_5_3() {
+fn register_request_dev_mode_roundtrips() {
     let j = json!({
         "id": 3,
         "cmd": "register",
@@ -148,53 +146,53 @@ fn register_request_dev_mode_roundtrips_sds_5_3() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lifecycle: list, status, launch, stop, focus, restart, journal  (SDS §5.3, ARCH §8.4)
+// Lifecycle: list, status, launch, stop, focus, restart, journal
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn list_request_roundtrips_sds_5_3() {
+fn list_request_roundtrips() {
     let j = json!({"id": 4, "cmd": "list"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn status_request_roundtrips_sds_5_3() {
+fn status_request_roundtrips() {
     let j = json!({"id": 5, "cmd": "status", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn status_request_no_app_roundtrips_sds_5_3() {
+fn status_request_no_app_roundtrips() {
     let j = json!({"id": 6, "cmd": "status"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn launch_request_roundtrips_sds_5_3() {
+fn launch_request_roundtrips() {
     let j = json!({"id": 7, "cmd": "launch", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn stop_request_roundtrips_sds_5_3() {
+fn stop_request_roundtrips() {
     let j = json!({"id": 8, "cmd": "stop", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn stop_request_no_app_roundtrips_sds_5_3() {
+fn stop_request_no_app_roundtrips() {
     let j = json!({"id": 9, "cmd": "stop"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn focus_request_roundtrips_sds_5_3() {
+fn focus_request_roundtrips() {
     let j = json!({"id": 10, "cmd": "focus", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn restart_request_roundtrips_sds_5_3() {
+fn restart_request_roundtrips() {
     let j = json!({"id": 11, "cmd": "restart", "app": "snake"});
     roundtrip_request(&j);
 }
@@ -206,11 +204,11 @@ fn journal_request_roundtrips_arch_8_4() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Buffers: buffer.register      (SDS §6.1)
+// Buffers: buffer.register
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn buffer_register_request_roundtrips_sds_6_1() {
+fn buffer_register_request_roundtrips() {
     let j = json!({
         "id": 10,
         "cmd": "buffer.register",
@@ -225,11 +223,11 @@ fn buffer_register_request_roundtrips_sds_6_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Frames: present  (SDS §6.1)
+// Frames: present
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn present_request_with_damage_roundtrips_sds_6_1() {
+fn present_request_with_damage_roundtrips() {
     let j = json!({
         "id": 11,
         "cmd": "present",
@@ -241,7 +239,7 @@ fn present_request_with_damage_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn present_request_no_damage_roundtrips_sds_6_1() {
+fn present_request_no_damage_roundtrips() {
     let j = json!({
         "id": 12,
         "cmd": "present",
@@ -252,23 +250,23 @@ fn present_request_no_damage_roundtrips_sds_6_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Parameters: get, get-all, set, set-many, describe, subscribe, unsubscribe (SDS §5.4)
+// Parameters: get, get-all, set, set-many, describe, subscribe, unsubscribe
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn get_request_roundtrips_sds_5_4() {
+fn get_request_roundtrips() {
     let j = json!({"id": 20, "cmd": "get", "app": "snake", "key": "speed"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn get_all_request_roundtrips_sds_5_4() {
+fn get_all_request_roundtrips() {
     let j = json!({"id": 21, "cmd": "get-all", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn set_request_int_roundtrips_sds_5_4() {
+fn set_request_int_roundtrips() {
     let j = json!({
         "id": 22,
         "cmd": "set",
@@ -280,7 +278,7 @@ fn set_request_int_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn set_request_color_roundtrips_sds_5_4() {
+fn set_request_color_roundtrips() {
     let j = json!({
         "id": 23,
         "cmd": "set",
@@ -292,7 +290,7 @@ fn set_request_color_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn set_many_request_roundtrips_sds_5_4() {
+fn set_many_request_roundtrips() {
     let j = json!({
         "id": 24,
         "cmd": "set-many",
@@ -306,72 +304,72 @@ fn set_many_request_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn describe_request_one_key_roundtrips_sds_5_4() {
+fn describe_request_one_key_roundtrips() {
     let j = json!({"id": 25, "cmd": "describe", "app": "snake", "key": "speed"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn describe_request_all_keys_roundtrips_sds_5_4() {
+fn describe_request_all_keys_roundtrips() {
     let j = json!({"id": 26, "cmd": "describe", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn subscribe_request_roundtrips_sds_5_4() {
+fn subscribe_request_roundtrips() {
     let j = json!({"id": 27, "cmd": "subscribe", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn unsubscribe_request_roundtrips_sds_5_4() {
+fn unsubscribe_request_roundtrips() {
     let j = json!({"id": 28, "cmd": "unsubscribe", "app": "snake"});
     roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Presets: preset.list, preset.load, preset.save, preset.delete, preset.current,
-//          preset.export, preset.import     (SDS §5.5)
+//          preset.export, preset.import
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn preset_list_request_roundtrips_sds_5_5() {
+fn preset_list_request_roundtrips() {
     let j = json!({"id": 30, "cmd": "preset.list", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn preset_load_request_roundtrips_sds_5_5() {
+fn preset_load_request_roundtrips() {
     let j = json!({"id": 31, "cmd": "preset.load", "app": "snake", "name": "default"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn preset_save_request_roundtrips_sds_5_5() {
+fn preset_save_request_roundtrips() {
     let j = json!({"id": 32, "cmd": "preset.save", "app": "snake", "name": "fast"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn preset_delete_request_roundtrips_sds_5_5() {
+fn preset_delete_request_roundtrips() {
     let j = json!({"id": 33, "cmd": "preset.delete", "app": "snake", "name": "fast"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn preset_current_request_roundtrips_sds_5_5() {
+fn preset_current_request_roundtrips() {
     let j = json!({"id": 34, "cmd": "preset.current", "app": "snake"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn preset_export_request_roundtrips_sds_5_5() {
+fn preset_export_request_roundtrips() {
     let j = json!({"id": 35, "cmd": "preset.export", "app": "snake", "name": "default"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn preset_import_request_roundtrips_sds_5_5() {
+fn preset_import_request_roundtrips() {
     let j = json!({
         "id": 36,
         "cmd": "preset.import",
@@ -382,52 +380,51 @@ fn preset_import_request_roundtrips_sds_5_5() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Brightness (SDS §5.10) and Diagnostics doctor.report (SDS §5.3, §11.1)
+// Brightness and Diagnostics doctor.report
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn brightness_set_request_roundtrips_sds_5_10() {
+fn brightness_set_request_roundtrips() {
     let j = json!({"id": 40, "cmd": "brightness.set", "value": 128});
     roundtrip_request(&j);
 }
 
 #[test]
-fn brightness_get_request_roundtrips_sds_5_10() {
+fn brightness_get_request_roundtrips() {
     let j = json!({"id": 41, "cmd": "brightness.get"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn doctor_report_request_roundtrips_sds_11_1() {
+fn doctor_report_request_roundtrips() {
     let j = json!({"id": 41, "cmd": "doctor.report"});
     roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Power (admin): power.blank, power.wake  (SDS v6 §5.12)
+// Power (admin): power.blank, power.wake
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn power_blank_request_roundtrips_sds_5_12() {
+fn power_blank_request_roundtrips() {
     let j = json!({"id": 50, "cmd": "power.blank"});
     roundtrip_request(&j);
 }
 
 #[test]
-fn power_wake_request_roundtrips_sds_5_12() {
+fn power_wake_request_roundtrips() {
     let j = json!({"id": 51, "cmd": "power.wake"});
     roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// App-Store (M1): apt.install, apt.upgrade, preview.asset  (admin verbs)
+// App-Store (M1): apt.install, apt.upgrade, preview.asset (admin verbs)
 //
 // New admin-socket verbs. Wire cmd tags follow the codebase's dotted
 // convention (like power.blank / overlay.text). `version` (install/upgrade)
 // and `timeout_secs` (preview) are OPTIONAL — omitted round-trips byte-for-byte
 // (skip_serializing_if). Per D2, preview.asset carries a path STRING, never
-// bytes. RED: the enum is `deny_unknown_fields` + tag-based, so these literals
-// fail to decode until the variants exist.
+// bytes.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -446,7 +443,8 @@ fn apt_install_request_without_version_roundtrips_appstore() {
 
 #[test]
 fn apt_upgrade_request_roundtrips_appstore() {
-    let j = json!({"id": 72, "cmd": "apt.upgrade", "package": "cube-app-tron3d", "version": "0.4.1"});
+    let j =
+        json!({"id": 72, "cmd": "apt.upgrade", "package": "cube-app-tron3d", "version": "0.4.1"});
     roundtrip_request(&j);
 }
 
@@ -482,23 +480,21 @@ fn preview_asset_request_without_timeout_roundtrips_appstore() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Transitions on launch / focus  (SDS v7 §5.13, §6.1)
+// Transitions on launch / focus
 //
-// W1 adds an OPTIONAL `transition: { kind: "cut"|"crossfade", duration_ms?: u32 }`
-// field to `launch` and `focus`. These pin the exact wire shapes from SDS §6.1:
+// `launch` and `focus` take an OPTIONAL `transition: { kind: "cut"|"crossfade", duration_ms?: u32 }`
+// field. These pin the exact wire shapes:
 //
 //   {"id":30,"cmd":"focus", "app":"snake",     "transition":{"kind":"crossfade","duration_ms":250}}
 //   {"id":31,"cmd":"launch","app":"pixelflow", "transition":{"kind":"cut"}}
 //
-// RED expectation: `Request::{Launch,Focus}` carry no `transition` field yet, and
-// the enum is `deny_unknown_fields`, so decoding either literal fails today. GREEN
-// adds the optional field (skip_serializing_if = none, so the existing
-// `launch_request_roundtrips_sds_5_3` / `focus_request_roundtrips_sds_5_3` — which
-// omit `transition` — keep round-tripping byte-for-byte).
+// The field is skipped when absent (skip_serializing_if = none), so the existing
+// `launch_request_roundtrips` / `focus_request_roundtrips` — which omit
+// `transition` — keep round-tripping byte-for-byte.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn transition_field_roundtrips_on_launch_sds_6_1() {
+fn transition_field_roundtrips_on_launch() {
     // `cut` is the hard-cut opt-out; `duration_ms` is omitted (optional).
     let j = json!({
         "id": 31,
@@ -510,7 +506,7 @@ fn transition_field_roundtrips_on_launch_sds_6_1() {
 }
 
 #[test]
-fn transition_field_roundtrips_on_focus_sds_6_1() {
+fn transition_field_roundtrips_on_focus() {
     // `crossfade` with an explicit duration.
     let j = json!({
         "id": 30,
@@ -522,23 +518,19 @@ fn transition_field_roundtrips_on_focus_sds_6_1() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// W5 — four NEW transition kinds (SDS v7 §5.13; plan "Add four compositor
-// transition effects"). The wire `TransitionKind` reserves room for these
-// ("`wipe` / `dissolve` / `push` are reserved … addable without a protocol
-// change", request.rs:46). RED: until GREEN adds the variants the snake_case
-// tokens fail to decode AT RUNTIME (unknown enum variant), which is the RED
-// signal for this crate. Tokens: `dissolve`, `dip_to_black`, `particle_dissolve`,
-// `push`.
+// Four additional transition kinds. The wire `TransitionKind` reserves room for
+// these ("`wipe` / `dissolve` / `push` are reserved … addable without a protocol
+// change"). Tokens: `dissolve`, `dip_to_black`, `particle_dissolve`, `push`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn transition_dissolve_roundtrips_sds_5_13() {
+fn transition_dissolve_roundtrips() {
     let j = json!({"id": 60, "cmd": "focus", "app": "snake", "transition": {"kind": "dissolve"}});
     roundtrip_request(&j);
 }
 
 #[test]
-fn transition_dip_to_black_roundtrips_sds_5_13() {
+fn transition_dip_to_black_roundtrips() {
     let j = json!({
         "id": 61,
         "cmd": "launch",
@@ -549,7 +541,7 @@ fn transition_dip_to_black_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn transition_particle_dissolve_roundtrips_sds_5_13() {
+fn transition_particle_dissolve_roundtrips() {
     let j = json!({
         "id": 62,
         "cmd": "focus",
@@ -560,31 +552,27 @@ fn transition_particle_dissolve_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn transition_push_roundtrips_sds_5_13() {
+fn transition_push_roundtrips() {
     let j = json!({"id": 63, "cmd": "focus", "app": "snake", "transition": {"kind": "push"}});
     roundtrip_request(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Wave 2 — ARGB8888 overlay format + admin text overlay  (SDS v7 §5.13, §6.1)
+// — ARGB8888 overlay format + admin text overlay
 //
-// W2 adds the overlay pixel format and the two admin-only system-text-overlay
-// commands. RED contract (what GREEN must add to `cube-proto`):
+// The overlay pixel format and the two admin-only system-text-overlay commands:
 //
 //   - `Format::Argb8888` with the wire token `"ARGB8888"` (alongside `RGB565`).
-//   - `Request::OverlayText { id, text, duration_ms?, z?, color? }`  (cmd
+//   - `Request::OverlayText { id, text, duration_ms?, z?, color? }` (cmd
 //     `"overlay.text"`) — system-rendered text overlay (no buffer/SCM_RIGHTS).
-//   - `Request::OverlayClear { id, z? }`  (cmd `"overlay.clear"`).
+//   - `Request::OverlayClear { id, z? }` (cmd `"overlay.clear"`).
 //
-// All three pin the exact JSON from SDS §6.1. They reference the new shapes only
-// through `serde_json` so the binary keeps compiling: until GREEN lands the
-// variants the decode FAILS AT RUNTIME (unknown `Format` variant / unknown
-// `cmd`), which is the RED state.
+// All three pin the exact JSON.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn format_argb8888_roundtrips_sds_5_1() {
-    // SDS v7 §5.13 / §6.1: overlay buffers use ARGB8888 (real alpha for `over`
+fn format_argb8888_roundtrips() {
+    //: overlay buffers use ARGB8888 (real alpha for `over`
     // compositing). The wire token is "ARGB8888". Decode-through `Format` so the
     // test compiles today and fails at runtime until the variant exists.
     let v = json!("ARGB8888");
@@ -602,8 +590,8 @@ fn format_argb8888_roundtrips_sds_5_1() {
 }
 
 #[test]
-fn overlay_text_command_roundtrips_sds_5_13() {
-    // SDS §6.1 worked example — admin-only system text overlay (all fields):
+fn overlay_text_command_roundtrips() {
+    // worked example — admin-only system text overlay (all fields):
     //   {"id":50,"cmd":"overlay.text","text":"Hello TEST",
     //    "duration_ms":3000,"z":1,"color":"#FFFFFF"}
     let j = json!({
@@ -616,7 +604,7 @@ fn overlay_text_command_roundtrips_sds_5_13() {
     });
     roundtrip_request(&j);
 
-    // `duration_ms` / `z` / `color` are all optional (§6.1: "z (default 1) and
+    // `duration_ms` / `z` / `color` are all optional ("z (default 1) and
     // color (default white) are optional"; duration_ms `0` = sticky). The
     // minimal form omits them and must round-trip byte-for-byte (the omitted
     // fields stay off the wire via skip_serializing_if).
@@ -629,36 +617,36 @@ fn overlay_text_command_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn overlay_clear_command_roundtrips_sds_5_13() {
-    // SDS §6.1: {"id":51,"cmd":"overlay.clear","z":1}.
+fn overlay_clear_command_roundtrips() {
+    //: {"id":51,"cmd":"overlay.clear","z":1}.
     let j = json!({"id": 52, "cmd": "overlay.clear", "z": 1});
     roundtrip_request(&j);
 
     // `z` is optional — "overlay.clear with no z clears all admin text
-    // overlays" (§6.1). The clear-all form omits z and round-trips.
+    // overlays". The clear-all form omits z and round-trips.
     let clear_all = json!({"id": 53, "cmd": "overlay.clear"});
     roundtrip_request(&clear_all);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Response envelope  (SDS §5.3)
+// Response envelope
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn response_ok_with_result_roundtrips_sds_5_3() {
+fn response_ok_with_result_roundtrips() {
     let j = json!({"id": 7, "ok": true, "result": {"any": "value"}});
     roundtrip_response(&j);
 }
 
 #[test]
-fn response_ok_empty_result_roundtrips_sds_5_3() {
-    // `buffer.register` returns just `{"id":10,"ok":true}` per SDS §6.1
+fn response_ok_empty_result_roundtrips() {
+    // `buffer.register` returns just `{"id":10,"ok":true}`
     let j = json!({"id": 10, "ok": true});
     roundtrip_response(&j);
 }
 
 #[test]
-fn response_error_roundtrips_sds_5_3() {
+fn response_error_roundtrips() {
     let j = json!({
         "id": 99,
         "ok": false,
@@ -672,8 +660,8 @@ fn response_error_roundtrips_sds_5_3() {
 }
 
 #[test]
-fn response_preset_import_warnings_roundtrips_sds_5_5() {
-    // SDS §5.5 explicit worked example.
+fn response_preset_import_warnings_roundtrips() {
+    // explicit worked example.
     let j = json!({
         "id": 42,
         "ok": true,
@@ -688,40 +676,40 @@ fn response_preset_import_warnings_roundtrips_sds_5_5() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Events: app.started, app.stopped  (SDS §5.3)
+// Events: app.started, app.stopped
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn app_started_event_roundtrips_sds_5_3() {
+fn app_started_event_roundtrips() {
     let j = json!({"event": "app.started", "app": "snake"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn app_stopped_event_roundtrips_sds_5_3() {
+fn app_stopped_event_roundtrips() {
     // v5 wire shape: no `reason` field. `reason` is `#[serde(default,
     // skip_serializing_if = "Option::is_none")]` so this v5-shaped literal
-    // still round-trips byte-for-byte (backward compat, SDS v6 delta §7).
+    // still round-trips byte-for-byte (backward compat).
     let j = json!({"event": "app.stopped", "app": "snake"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn app_stopped_event_with_reason_roundtrips_sds_6_2() {
+fn app_stopped_event_with_reason_roundtrips() {
     let j = json!({"event": "app.stopped", "app": "snake", "reason": "control_lost"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn app_stopped_event_with_frame_stream_idle_reason_roundtrips_sds_6_2() {
-    // SDS v6 §6.2 / item 2.7: the `frame_stream_idle` teardown reason added
+fn app_stopped_event_with_frame_stream_idle_reason_roundtrips() {
+    // / item 2.7: the `frame_stream_idle` teardown reason added
     // to the `app.stopped` wire vocabulary.
     let j = json!({"event": "app.stopped", "app": "snake", "reason": "frame_stream_idle"});
     roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Events: install.progress, install.complete  (App-Store M1)
+// Events: install.progress, install.complete (App-Store M1)
 //
 // Streamed while an `apt.install` / `apt.upgrade` job runs. `app` is the deb
 // package name. `install.progress.line` is one line of apt output; `.ok` on
@@ -774,39 +762,39 @@ fn install_complete_event_with_event_seq_roundtrips_appstore() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Events: focus.lost, focus.gained  (SDS v6 §5.2, §6.1 — reliable-tier)
+// Events: focus.lost, focus.gained (reliable-tier)
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn focus_lost_event_app_switch_roundtrips_sds_6_1() {
+fn focus_lost_event_app_switch_roundtrips() {
     let j = json!({"event": "focus.lost", "reason": "app_switch"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn focus_lost_event_home_roundtrips_sds_6_1() {
+fn focus_lost_event_home_roundtrips() {
     let j = json!({"event": "focus.lost", "reason": "home"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn focus_lost_event_stopping_roundtrips_sds_6_1() {
+fn focus_lost_event_stopping_roundtrips() {
     let j = json!({"event": "focus.lost", "reason": "stopping"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn focus_gained_event_roundtrips_sds_6_1() {
+fn focus_gained_event_roundtrips() {
     let j = json!({"event": "focus.gained"});
     roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Events: present.displayed, buffer.release × 5 reasons  (SDS §5.1, §6.1)
+// Events: present.displayed, buffer.release × 5 reasons
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn present_displayed_event_roundtrips_sds_6_1() {
+fn present_displayed_event_roundtrips() {
     let j = json!({
         "event": "present.displayed",
         "seq": 100,
@@ -816,7 +804,7 @@ fn present_displayed_event_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn buffer_release_displayed_reason_roundtrips_sds_5_1() {
+fn buffer_release_displayed_reason_roundtrips() {
     let j = json!({
         "event": "buffer.release",
         "buffer_id": 0,
@@ -827,7 +815,7 @@ fn buffer_release_displayed_reason_roundtrips_sds_5_1() {
 }
 
 #[test]
-fn buffer_release_dropped_reason_roundtrips_sds_5_1() {
+fn buffer_release_dropped_reason_roundtrips() {
     let j = json!({
         "event": "buffer.release",
         "buffer_id": 0,
@@ -838,7 +826,7 @@ fn buffer_release_dropped_reason_roundtrips_sds_5_1() {
 }
 
 #[test]
-fn buffer_release_replaced_reason_roundtrips_sds_5_1() {
+fn buffer_release_replaced_reason_roundtrips() {
     let j = json!({
         "event": "buffer.release",
         "buffer_id": 0,
@@ -849,7 +837,7 @@ fn buffer_release_replaced_reason_roundtrips_sds_5_1() {
 }
 
 #[test]
-fn buffer_release_focus_lost_reason_roundtrips_sds_5_1() {
+fn buffer_release_focus_lost_reason_roundtrips() {
     let j = json!({
         "event": "buffer.release",
         "buffer_id": 0,
@@ -860,7 +848,7 @@ fn buffer_release_focus_lost_reason_roundtrips_sds_5_1() {
 }
 
 #[test]
-fn buffer_release_blanked_reason_roundtrips_sds_5_12() {
+fn buffer_release_blanked_reason_roundtrips() {
     let j = json!({
         "event": "buffer.release",
         "buffer_id": 0,
@@ -871,11 +859,11 @@ fn buffer_release_blanked_reason_roundtrips_sds_5_12() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Events: param.changed, params.changed, events.dropped   (SDS §5.4, §5.3)
+// Events: param.changed, params.changed, events.dropped
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn param_changed_event_roundtrips_sds_5_4() {
+fn param_changed_event_roundtrips() {
     let j = json!({
         "event": "param.changed",
         "app": "snake",
@@ -887,7 +875,7 @@ fn param_changed_event_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn params_changed_event_roundtrips_sds_5_4() {
+fn params_changed_event_roundtrips() {
     let j = json!({
         "event": "params.changed",
         "app": "snake",
@@ -901,18 +889,18 @@ fn params_changed_event_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn events_dropped_event_roundtrips_sds_5_3() {
+fn events_dropped_event_roundtrips() {
     let j = json!({"event": "events.dropped", "since_seq": 1234});
     roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Events: input.event (key + abs), input.snapshot, input.device_state,
-//         input.dropped   (SDS §5.7.1, §6.1)
+//         input.dropped
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn input_event_key_roundtrips_sds_6_1() {
+fn input_event_key_roundtrips() {
     let j = json!({
         "event": "input.event",
         "input_seq": 120,
@@ -926,7 +914,7 @@ fn input_event_key_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn input_event_abs_roundtrips_sds_6_1() {
+fn input_event_abs_roundtrips() {
     let j = json!({
         "event": "input.event",
         "input_seq": 121,
@@ -959,7 +947,7 @@ fn input_event_without_player_defaults_to_zero() {
 }
 
 #[test]
-fn input_snapshot_event_roundtrips_sds_6_1() {
+fn input_snapshot_event_roundtrips() {
     let j = json!({
         "event": "input.snapshot",
         "input_seq": 140,
@@ -972,7 +960,7 @@ fn input_snapshot_event_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn input_device_state_event_connected_roundtrips_sds_6_1() {
+fn input_device_state_event_connected_roundtrips() {
     let j = json!({
         "event": "input.device_state",
         "device": "8BitDo SN30 Pro",
@@ -982,7 +970,7 @@ fn input_device_state_event_connected_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn input_device_state_event_disconnected_roundtrips_sds_6_1() {
+fn input_device_state_event_disconnected_roundtrips() {
     let j = json!({
         "event": "input.device_state",
         "device": "8BitDo SN30 Pro",
@@ -992,14 +980,14 @@ fn input_device_state_event_disconnected_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn input_dropped_event_roundtrips_sds_6_1() {
+fn input_dropped_event_roundtrips() {
     let j = json!({"event": "input.dropped", "since_seq": 120, "player": 0});
     roundtrip_event(&j);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Events: input.player_connected / input.player_disconnected
-//         (cube-gamepad "Wire-format changes")
+// (cube-gamepad "Wire-format changes")
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -1013,7 +1001,7 @@ fn input_player_connected_roundtrips() {
     });
     let back = roundtrip_event(&j);
     match serde_json::from_value::<Event>(back).expect("decode") {
-        // The stable per-device id (LEDCube/cube#28) round-trips and lets a
+        // The stable per-device id round-trips and lets a
         // client map this physical pad to its slot even when a second
         // identical-model pad is present.
         Event::InputPlayerConnected { hw_id, .. } => {
@@ -1155,7 +1143,7 @@ fn input_tuning_set_request_partial_omits_unset() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Events: tier-2 input.binding_changed / input.tuning_changed / input.capture
-//   (cube-gamepad "Wire-format changes")
+// (cube-gamepad "Wire-format changes")
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -1250,9 +1238,9 @@ fn input_sample_shape() {
 #[test]
 fn input_sample_with_raw_triple_roundtrips() {
     // The enriched capture-tap event carries the originating evdev triple so an
-    // input visualiser shows raw + decoded together (cube#7): here a dpad-via-
+    // input visualiser shows raw + decoded together: here a dpad-via-
     // axis press arrives as ABS_HAT0Y = 255 yet decodes to the canonical DPadDown
-    // — the exact shape that makes axis-encoding bugs (cube#5) obvious.
+    // — the exact shape that makes axis-encoding bugs obvious.
     let j = json!({
         "event": "input.capture", "player": 0, "button": "DPadDown", "pressed": true,
         "raw_type": "abs", "raw_code": "abs_hat0y", "raw_value": 255
@@ -1305,7 +1293,7 @@ fn input_sample_released_roundtrips() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// input.controllers roster entry  (ControllerInfo / ControllerProfile)
+// input.controllers roster entry (ControllerInfo / ControllerProfile)
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -1323,7 +1311,7 @@ fn input_controllers_roster_entry_recognized_roundtrips() {
     assert_eq!(info.player, 0);
     assert_eq!(info.profile, ControllerProfile::Recognized);
     assert_eq!(info.vid_pid.as_deref(), Some("2dc8:9018"));
-    // Stable per-device id (LEDCube/cube#28): distinguishes two identical pads.
+    // Stable per-device id: distinguishes two identical pads.
     assert_eq!(info.hw_id.as_deref(), Some("E4:17:D8:25:FB:42"));
     assert!(info.connected);
     assert_eq!(serde_json::to_value(&info).expect("encode"), j);
@@ -1333,7 +1321,7 @@ fn input_controllers_roster_entry_recognized_roundtrips() {
 fn input_controllers_roster_two_identical_pads_differ_by_hw_id() {
     use cube_proto::ControllerInfo;
     // Two controllers of the SAME model (identical name + vid_pid) are
-    // distinguishable only by their stable per-device id (LEDCube/cube#28).
+    // distinguishable only by their stable per-device id.
     let a: ControllerInfo = serde_json::from_value(json!({
         "player": 0, "name": "8BitDo SN30 Pro", "vid_pid": "2dc8:9018",
         "hw_id": "E4:17:D8:25:FB:42", "profile": "recognized", "connected": true
@@ -1369,17 +1357,17 @@ fn input_controllers_roster_entry_generic_no_vid_pid_roundtrips() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Events: power.state, config.reloaded   (SDS §5.12, ARCH §7)
+// Events: power.state, config.reloaded
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn power_state_active_event_roundtrips_sds_5_12() {
+fn power_state_active_event_roundtrips() {
     let j = json!({"event": "power.state", "state": "active"});
     roundtrip_event(&j);
 }
 
 #[test]
-fn power_state_blanked_event_roundtrips_sds_5_12() {
+fn power_state_blanked_event_roundtrips() {
     let j = json!({"event": "power.state", "state": "blanked"});
     roundtrip_event(&j);
 }
@@ -1391,11 +1379,11 @@ fn config_reloaded_event_roundtrips_arch_7_0() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared value types — direct round-trip   (SDS §6.1, §5.4)
+// Shared value types — direct round-trip
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn damage_roundtrips_sds_6_1() {
+fn damage_roundtrips() {
     let d = Damage {
         x: 0,
         y: 1,
@@ -1409,7 +1397,7 @@ fn damage_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn format_rgb565_roundtrips_sds_6_1() {
+fn format_rgb565_roundtrips() {
     let f = Format::Rgb565;
     let v = serde_json::to_value(f).unwrap();
     assert_eq!(v, json!("RGB565"));
@@ -1418,7 +1406,7 @@ fn format_rgb565_roundtrips_sds_6_1() {
 }
 
 #[test]
-fn paramvalue_bool_roundtrips_sds_5_4() {
+fn paramvalue_bool_roundtrips() {
     let p = ParamValue::Bool(true);
     let v = serde_json::to_value(&p).unwrap();
     assert_eq!(v, json!({"type": "bool", "value": true}));
@@ -1427,7 +1415,7 @@ fn paramvalue_bool_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn paramvalue_int_roundtrips_sds_5_4() {
+fn paramvalue_int_roundtrips() {
     let p = ParamValue::Int(-42);
     let v = serde_json::to_value(&p).unwrap();
     assert_eq!(v, json!({"type": "int", "value": -42}));
@@ -1436,7 +1424,7 @@ fn paramvalue_int_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn paramvalue_float_roundtrips_sds_5_4() {
+fn paramvalue_float_roundtrips() {
     let p = ParamValue::Float(0.5);
     let v = serde_json::to_value(&p).unwrap();
     assert_eq!(v, json!({"type": "float", "value": 0.5}));
@@ -1445,7 +1433,7 @@ fn paramvalue_float_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn paramvalue_string_roundtrips_sds_5_4() {
+fn paramvalue_string_roundtrips() {
     let p = ParamValue::String("hello".into());
     let v = serde_json::to_value(&p).unwrap();
     assert_eq!(v, json!({"type": "string", "value": "hello"}));
@@ -1454,7 +1442,7 @@ fn paramvalue_string_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn paramvalue_enum_roundtrips_sds_5_4() {
+fn paramvalue_enum_roundtrips() {
     let p = ParamValue::Enum("classic".into());
     let v = serde_json::to_value(&p).unwrap();
     assert_eq!(v, json!({"type": "enum", "value": "classic"}));
@@ -1463,7 +1451,7 @@ fn paramvalue_enum_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn paramvalue_vec2_roundtrips_sds_5_4() {
+fn paramvalue_vec2_roundtrips() {
     let p = ParamValue::Vec2(Vec2 { x: 0.25, y: -0.75 });
     let v = serde_json::to_value(&p).unwrap();
     assert_eq!(v, json!({"type": "vec2", "value": {"x": 0.25, "y": -0.75}}));
@@ -1472,7 +1460,7 @@ fn paramvalue_vec2_roundtrips_sds_5_4() {
 }
 
 #[test]
-fn paramvalue_vec3_roundtrips_sds_5_4() {
+fn paramvalue_vec3_roundtrips() {
     let p = ParamValue::Vec3(Vec3 {
         x: 1.0,
         y: 2.0,
@@ -1488,33 +1476,28 @@ fn paramvalue_vec3_roundtrips_sds_5_4() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Wave 3 — client overlays (acquire/release/dismissed) + `layer` on present +
-//          the EPERM error code  (SDS v7 §5.13, §6.1)
+// — client overlays (acquire/release/dismissed) + `layer` on present +
+//          the EPERM error code
 //
-// W3 adds the CLIENT-provided overlay surface (a privileged client acquires an
+// The CLIENT-provided overlay surface (a privileged client acquires an
 // overlay layer and presents its own ARGB8888 frames into it) and the modal
-// input grab. RED contract — what GREEN must add to `cube-proto`:
+// input grab:
 //
-//   - `Request::OverlayAcquire { id, z?, input? }`  (cmd `"overlay.acquire"`).
+//   - `Request::OverlayAcquire { id, z?, input? }` (cmd `"overlay.acquire"`).
 //       `z` (optional, default 1) and `input` (optional, default `"none"`;
-//       one of `"none" | "modal"`) — SDS §6.1 worked example.
-//   - `Request::OverlayRelease { id, layer }`       (cmd `"overlay.release"`).
-//   - `Event::OverlayDismissed { layer, reason }`   (event `"overlay.dismissed"`;
+//       one of `"none" | "modal"`) — worked example.
+//   - `Request::OverlayRelease { id, layer }` (cmd `"overlay.release"`).
+//   - `Event::OverlayDismissed { layer, reason }` (event `"overlay.dismissed"`;
 //       `reason ∈ "released" | "focus_lost" | "blanked"`).
 //   - an optional `layer` field on `Request::Present` (absent / `0` ⇒ base
 //       layer; an id returned by `overlay.acquire` ⇒ that overlay layer).
 //   - `CubeErrno::EPERM` — the capability-denied error for an unauthorized
-//       `overlay.acquire` (SDS §5.13 / §6.1).
-//
-// Each test references the new shapes only through the existing
-// `Request`/`Event`/`Response`/`CubeErrno` types, so the binary keeps compiling;
-// each one FAILS AT RUNTIME today (unknown `cmd`/`event`, the `deny_unknown_fields`
-// `layer` rejection, or the unknown `EPERM` token), which is the RED state.
+//       `overlay.acquire`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
-    // SDS §6.1 worked example — acquire a modal overlay at z = 1:
+fn overlay_acquire_release_dismissed_roundtrip() {
+    // worked example — acquire a modal overlay at z = 1:
     //   {"id":40,"cmd":"overlay.acquire","z":1,"input":"modal"}
     //      → {"id":40,"ok":true,"result":{"layer":7}}
     //   {"id":42,"cmd":"overlay.release","layer":7}
@@ -1534,7 +1517,7 @@ fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
 
     // The acquire OK response carries the assigned `{layer}` in `result`. The
     // result body is opaque JSON, so this already round-trips through `Response`
-    // — it documents the wire shape GREEN's handler returns.
+    // — it documents the wire shape the daemon returns.
     let acquire_ok = json!({"id": 40, "ok": true, "result": {"layer": 7}});
     roundtrip_response(&acquire_ok);
 
@@ -1542,7 +1525,7 @@ fn overlay_acquire_release_dismissed_roundtrip_sds_5_13() {
     let release = json!({"id": 42, "cmd": "overlay.release", "layer": 7});
     roundtrip_request(&release);
 
-    // overlay.dismissed EVENT — all three SDS §6.1 reasons.
+    // overlay.dismissed EVENT — all three reasons.
     for reason in ["released", "focus_lost", "blanked"] {
         let dismissed = json!({"event": "overlay.dismissed", "layer": 7, "reason": reason});
         roundtrip_event(&dismissed);
@@ -1555,7 +1538,7 @@ fn overlay_dismiss_reason_unknown_is_forward_compatible() {
 
     // A reason token this build does not recognize (a future `cubed` reason, or
     // an SDK drift) must NOT hard-fail strict decode — the `#[serde(other)]`
-    // catch-all maps it to `Unknown` (issue LEDCube/cube#33). This is the shared
+    // catch-all maps it to `Unknown`. This is the shared
     // vocabulary both SDKs consume, so an unknown reason is handled identically
     // to any known one: stop presenting into the layer.
     let ev: Event = serde_json::from_value(
@@ -1579,7 +1562,10 @@ fn overlay_dismiss_reason_unknown_is_forward_compatible() {
     .expect("the `unknown` token itself decodes");
     assert!(matches!(
         back,
-        Event::OverlayDismissed { reason: OverlayDismissReason::Unknown, .. }
+        Event::OverlayDismissed {
+            reason: OverlayDismissReason::Unknown,
+            ..
+        }
     ));
 
     // The three known reasons are unaffected — still decode to their variants.
@@ -1600,8 +1586,8 @@ fn overlay_dismiss_reason_unknown_is_forward_compatible() {
 }
 
 #[test]
-fn present_with_layer_field_roundtrips_sds_5_1() {
-    // SDS §6.1: `present` gains an optional `layer` selecting which compositor
+fn present_with_layer_field_roundtrips() {
+    //: `present` gains an optional `layer` selecting which compositor
     // layer the buffer updates. `layer:7` targets an acquired overlay layer:
     //   {"id":41,"cmd":"present","seq":1,"buffer_id":2,"layer":7}
     let to_overlay = json!({
@@ -1627,9 +1613,9 @@ fn present_with_layer_field_roundtrips_sds_5_1() {
 }
 
 #[test]
-fn eperm_error_roundtrips_sds_5_13() {
-    // SDS §5.13 / §6.1: `overlay.acquire` from a client without overlay
-    // capability returns EPERM. The closed `CubeErrno` set (SDS §5.3) must gain
+fn eperm_error_roundtrips() {
+    //: `overlay.acquire` from a client without overlay
+    // capability returns EPERM. The closed `CubeErrno` set must gain
     // the `EPERM` variant; it serializes to/from its uppercase name.
     let code: cube_proto::CubeErrno =
         serde_json::from_value(json!("EPERM")).expect("CubeErrno must decode the \"EPERM\" token");

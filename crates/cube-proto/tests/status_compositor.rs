@@ -1,7 +1,6 @@
-//! Wave 4 — the `compositor:` block of the `cubectl status` payload
-//! (SDS v7 §11.1, §5.13).
+//! — the `compositor:` block of the `cubectl status` payload.
 //!
-//! ## RED contract (what GREEN must add to `cube-proto`)
+//! ## Contract
 //!
 //! - `pub struct CompositorStatus { composited_layers: u32,
 //!   transition_in_progress: bool, transition: Option<String>,
@@ -12,8 +11,6 @@
 //!   (`provenance ∈ "system" | "client"`).
 //! - `StatusReport` gains `#[serde(default)] pub compositor: CompositorStatus`
 //!   so older (pre-compositor) payloads still deserialize.
-//!
-//! Until those land this binary fails to compile — that is the RED state.
 
 use std::collections::BTreeMap;
 
@@ -52,15 +49,23 @@ fn sample_report() -> StatusReport {
 }
 
 #[test]
-fn status_report_carries_compositor_section_sds_11_1() {
+fn status_report_carries_compositor_section() {
     // A populated compositor block round-trips field-for-field.
     let cs = CompositorStatus {
         composited_layers: 4,
         transition_in_progress: true,
         transition: Some("crossfade @ 50%".to_owned()),
         overlays: vec![
-            OverlayStatus { provenance: "client".to_owned(), z: 2, layer: Some(7) },
-            OverlayStatus { provenance: "system".to_owned(), z: 100, layer: None },
+            OverlayStatus {
+                provenance: "client".to_owned(),
+                z: 2,
+                layer: Some(7),
+            },
+            OverlayStatus {
+                provenance: "system".to_owned(),
+                z: 100,
+                layer: None,
+            },
         ],
         input_grab: "overlay:7".to_owned(),
         frames_composited: 1234,
@@ -69,7 +74,7 @@ fn status_report_carries_compositor_section_sds_11_1() {
     let back: CompositorStatus = serde_json::from_str(&json).expect("deserialize CompositorStatus");
     assert_eq!(cs, back, "CompositorStatus round-trips");
 
-    // Every SDS §11.1 compositor field is present on the wire.
+    // Every compositor field is present on the wire.
     for key in [
         "composited_layers",
         "transition_in_progress",
@@ -77,16 +82,22 @@ fn status_report_carries_compositor_section_sds_11_1() {
         "input_grab",
         "frames_composited",
     ] {
-        assert!(json.contains(key), "compositor JSON missing `{key}`: {json}");
+        assert!(
+            json.contains(key),
+            "compositor JSON missing `{key}`: {json}"
+        );
     }
-    assert!(json.contains("provenance"), "overlay provenance on the wire: {json}");
+    assert!(
+        json.contains("provenance"),
+        "overlay provenance on the wire: {json}"
+    );
 
     // The full StatusReport serializes a `compositor` section.
     let report = sample_report();
     let mut v = serde_json::to_value(&report).expect("serialize StatusReport");
     assert!(
         v.get("compositor").is_some(),
-        "StatusReport serializes a compositor section (SDS §11.1)"
+        "StatusReport serializes a compositor section"
     );
 
     // A pre-compositor payload (no `compositor` key) still deserializes, with

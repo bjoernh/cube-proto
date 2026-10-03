@@ -1,4 +1,4 @@
-//! Name validation for presets and apps (SDS §5.5).
+//! Name validation for presets and apps.
 
 use crate::types::PresetError;
 
@@ -9,16 +9,14 @@ use crate::types::PresetError;
 /// Returns `Err(PresetError::BadRequest)` BEFORE any filesystem operation.
 pub(crate) fn validate_name(name: &str) -> Result<(), PresetError> {
     if name.is_empty() {
-        return Err(PresetError::BadRequest(
-            "name must not be empty".to_owned(),
-        ));
+        return Err(PresetError::BadRequest("name must not be empty".to_owned()));
     }
     if name == "." || name == ".." {
         return Err(PresetError::BadRequest(format!(
             "name must not be '.' or '..', got {name:?}"
         )));
     }
-    // SDS §5.5 regex: ^[a-zA-Z0-9._-]+$
+    // regex: ^[a-zA-Z0-9._-]+$
     // Also reject '/' and control characters.
     for ch in name.chars() {
         if ch == '/' {

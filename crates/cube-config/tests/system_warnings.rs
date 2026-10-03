@@ -1,6 +1,6 @@
-//! Validation-warning tests for `SystemConfig` (SDS §6.4).
+//! Validation-warning tests for `SystemConfig`.
 //!
-//! SDS §6.4 says: "the default `bind = "127.0.0.1"` means the listener is
+//! says: "the default `bind = "127.0.0.1"` means the listener is
 //! reachable only from loopback. … To expose remote rendering on the LAN the
 //! setting must be changed **and a WARN is logged.**". The warning surfaces in
 //! the `ValidationReport.warnings` slot with a stable, machine-readable code
@@ -52,7 +52,7 @@ idle_blank_after_sec = 0
 }
 
 #[test]
-fn system_warning_absent_on_loopback_defaults_sds_6_4() {
+fn system_warning_absent_on_loopback_defaults() {
     let p = cfg_with(
         "\
 enabled = true
@@ -62,14 +62,17 @@ mtu_hint = \"jumbo_recommended\"",
     );
     let (_, report) = load_system(&p).unwrap();
     assert!(
-        report.warnings.iter().all(|w| w.code != "NETWORK_PUBLIC_BIND"),
+        report
+            .warnings
+            .iter()
+            .all(|w| w.code != "NETWORK_PUBLIC_BIND"),
         "loopback-only binds must not trigger NETWORK_PUBLIC_BIND, got {:?}",
         report.warnings,
     );
 }
 
 #[test]
-fn system_warning_on_public_remote_render_bind_sds_6_4() {
+fn system_warning_on_public_remote_render_bind() {
     let p = cfg_with(
         "\
 enabled = true
@@ -97,18 +100,17 @@ mtu_hint = \"jumbo_recommended\"",
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// cube-gamepad Phase 3 (M8): deprecated `system_controller_name_pattern` alias
+// Deprecated `system_controller_name_pattern` alias
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Phase 3 (M8) — RED. A legacy `system_controller_name_pattern` is a
+/// A legacy `system_controller_name_pattern` is a
 /// **deprecated alias**: on load it must (1) seed `device_allow` so capability
 /// discovery still honours the old single-controller filter, and (2) surface a
 /// one-time deprecation warning under the stable code
 /// `INPUT_DEPRECATED_NAME_PATTERN`.
 ///
 /// `cfg_with` already emits `system_controller_name_pattern = "8BitDo*"` in its
-/// `[input]` block, so this exercises the alias path. Red until Phase 3 GREEN
-/// implements the fold in `load_system` / `validate_system`.
+/// `[input]` block, so this exercises the alias path.
 #[test]
 fn legacy_name_pattern_seeds_device_allow_and_warns_phase3() {
     let p = cfg_with(

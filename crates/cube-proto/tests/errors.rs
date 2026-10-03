@@ -1,4 +1,4 @@
-//! Coverage for the 14 `CubeErrno` variants (SDS §5.3) and for the `CubeError`
+//! Coverage for the 14 `CubeErrno` variants and for the `CubeError`
 //! body that carries them in `Response.error`.
 
 use std::collections::BTreeMap;
@@ -15,84 +15,84 @@ fn assert_errno_roundtrip(variant: CubeErrno, wire: &str) {
 }
 
 #[test]
-fn errno_ebadreq_round_trips_sds_5_3() {
+fn errno_ebadreq_round_trips() {
     assert_errno_roundtrip(CubeErrno::EBADREQ, "EBADREQ");
 }
 
 #[test]
-fn errno_eunknown_round_trips_sds_5_3() {
+fn errno_eunknown_round_trips() {
     assert_errno_roundtrip(CubeErrno::EUNKNOWN, "EUNKNOWN");
 }
 
 #[test]
-fn errno_enoapp_round_trips_sds_5_3() {
+fn errno_enoapp_round_trips() {
     assert_errno_roundtrip(CubeErrno::ENOAPP, "ENOAPP");
 }
 
 #[test]
-fn errno_enokey_round_trips_sds_5_3() {
+fn errno_enokey_round_trips() {
     assert_errno_roundtrip(CubeErrno::ENOKEY, "ENOKEY");
 }
 
 #[test]
-fn errno_etype_round_trips_sds_5_3() {
+fn errno_etype_round_trips() {
     assert_errno_roundtrip(CubeErrno::ETYPE, "ETYPE");
 }
 
 #[test]
-fn errno_erange_round_trips_sds_5_3() {
+fn errno_erange_round_trips() {
     assert_errno_roundtrip(CubeErrno::ERANGE, "ERANGE");
 }
 
 #[test]
-fn errno_eenum_round_trips_sds_5_3() {
+fn errno_eenum_round_trips() {
     assert_errno_roundtrip(CubeErrno::EENUM, "EENUM");
 }
 
 #[test]
-fn errno_ereadonly_round_trips_sds_5_3() {
+fn errno_ereadonly_round_trips() {
     assert_errno_roundtrip(CubeErrno::EREADONLY, "EREADONLY");
 }
 
 #[test]
-fn errno_eexist_round_trips_sds_5_3() {
+fn errno_eexist_round_trips() {
     assert_errno_roundtrip(CubeErrno::EEXIST, "EEXIST");
 }
 
 #[test]
-fn errno_enoent_round_trips_sds_5_3() {
+fn errno_enoent_round_trips() {
     assert_errno_roundtrip(CubeErrno::ENOENT, "ENOENT");
 }
 
 #[test]
-fn errno_eversion_round_trips_sds_5_3() {
+fn errno_eversion_round_trips() {
     assert_errno_roundtrip(CubeErrno::EVERSION, "EVERSION");
 }
 
 #[test]
-fn errno_etimeout_round_trips_sds_5_3() {
+fn errno_etimeout_round_trips() {
     assert_errno_roundtrip(CubeErrno::ETIMEOUT, "ETIMEOUT");
 }
 
 #[test]
-fn errno_ebusy_round_trips_sds_5_3() {
+fn errno_ebusy_round_trips() {
     assert_errno_roundtrip(CubeErrno::EBUSY, "EBUSY");
 }
 
 #[test]
-fn errno_enotrunning_round_trips_sds_5_3() {
+fn errno_enotrunning_round_trips() {
     assert_errno_roundtrip(CubeErrno::ENOTRUNNING, "ENOTRUNNING");
 }
 
 #[test]
-fn unknown_errno_string_is_rejected_sds_5_3() {
+fn unknown_errno_string_is_rejected() {
     let j = json!("ENOTANERRNO");
     let r: Result<CubeErrno, _> = serde_json::from_value(j);
     assert!(r.is_err(), "unknown errno must not deserialize");
 }
 
 #[test]
-fn cube_error_with_context_round_trips_sds_5_3() {
+fn cube_error_with_context_round_trips() {
     let mut ctx = BTreeMap::new();
     ctx.insert("app".to_string(), json!("snake"));
     ctx.insert("key".to_string(), json!("speed"));
@@ -119,7 +119,7 @@ fn cube_error_with_context_round_trips_sds_5_3() {
 }
 
 #[test]
-fn cube_error_empty_context_round_trips_sds_5_3() {
+fn cube_error_empty_context_round_trips() {
     let err = CubeError {
         code: CubeErrno::EBADREQ,
         message: "bad request".to_string(),
@@ -131,7 +131,7 @@ fn cube_error_empty_context_round_trips_sds_5_3() {
 }
 
 #[test]
-fn cube_error_implements_std_error_sds_5_3() {
+fn cube_error_implements_std_error() {
     // Compile-time check: CubeError must be a `std::error::Error`.
     fn assert_error<E: std::error::Error>() {}
     assert_error::<CubeError>();

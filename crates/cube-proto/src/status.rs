@@ -1,7 +1,7 @@
-//! `cubectl status` payload — SDS §11.1.
+//! `cubectl status` payload —.
 //!
 //! The wire response carries this struct serialized into the `Response.result`
-//! field. The fields mirror SDS §11.1's bullet structure:
+//! field. The fields mirror's bullet structure:
 //!
 //! ```text
 //! cubed:     version, uptime, protocol_version, active app, focused app, launcher state
@@ -16,19 +16,19 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-/// Top-level payload of a `status` response (SDS §11.1).
+/// Top-level payload of a `status` response.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StatusReport {
     pub cubed: CubedStatus,
     pub display: DisplayStatus,
     pub per_app: BTreeMap<String, PerAppStatus>,
-    /// `compositor:` section (SDS v7 §11.1, §5.13). Defaults so a pre-compositor
+    /// `compositor:` section. Defaults so a pre-compositor
     /// (v6) status payload without this key still deserializes.
     #[serde(default)]
     pub compositor: CompositorStatus,
 }
 
-/// `compositor:` section (SDS v7 §11.1, §5.13).
+/// `compositor:` section.
 ///
 /// Snapshots the DRM-thread compositor's layer state: how many layers are
 /// composed this frame, whether a focus transition is animating (and a short
@@ -49,26 +49,26 @@ pub struct CompositorStatus {
     /// The currently-composed overlays, each with its provenance and z.
     pub overlays: Vec<OverlayStatus>,
     /// Who currently owns the modal input grab — `base` when input routes to the
-    /// focused app, or `overlay:<layer>` for a modal client overlay (SDS §5.7.1).
+    /// focused app, or `overlay:<layer>` for a modal client overlay.
     pub input_grab: String,
     /// Cumulative count of frames composed since `cubed` started.
     pub frames_composited: u64,
 }
 
-/// One composited overlay in the [`CompositorStatus`] snapshot (SDS v7 §11.1).
+/// One composited overlay in the [`CompositorStatus`] snapshot.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct OverlayStatus {
     /// `"system"` (cubed-rendered: banner / `overlay.text`) or `"client"`
     /// (a privileged client's acquired layer).
     pub provenance: String,
-    /// Stacking order; higher z composes on top (SDS §5.13).
+    /// Stacking order; higher z composes on top.
     pub z: i32,
     /// The client `layer` id for a client overlay, or `None` for a system one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layer: Option<u32>,
 }
 
-/// `cubed:` section (SDS §11.1).
+/// `cubed:` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CubedStatus {
     pub version: String,
@@ -81,11 +81,11 @@ pub struct CubedStatus {
     pub focused_app: Option<String>,
     pub launcher_state: String,
     /// Current count of resident non-launcher app sessions (focused + paused,
-    /// SDS v6 §1.2 / delta §6). Defaults to `0` for backward compatibility
+    ///). Defaults to `0` for backward compatibility
     /// with v5 status payloads.
     #[serde(default)]
     pub resident_apps: u32,
-    /// `[apps] max_resident` from `system.toml` (SDS v6 §1.2 / delta §6).
+    /// `[apps] max_resident` from `system.toml`.
     /// Defaults to `1` (v5-equivalent) for backward compatibility.
     #[serde(default = "max_resident_default")]
     pub max_resident: u32,
@@ -95,7 +95,7 @@ fn max_resident_default() -> u32 {
     1
 }
 
-/// `display:` section (SDS §11.1).
+/// `display:` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DisplayStatus {
     pub driver_name: String,
@@ -107,13 +107,13 @@ pub struct DisplayStatus {
     pub frames_displayed: u64,
     pub frames_dropped: FramesDropped,
     pub spi_errors: u64,
-    /// Cumulative count of DRM-thread output failures — a `device.commit()` or
-    /// `frame_events` send that returned an error (SDS v7 §11.1; R3.5). `0` in
+    /// Cumulative count of DRM-thread output failures — a `device.commit` or
+    /// `frame_events` send that returned an error. `0` in
     /// steady state; a non-zero value flags a failing display pipeline. Defaults
-    /// to `0` for backward compatibility with pre-R3.5 status payloads.
+    /// to `0` for backward compatibility with older status payloads.
     #[serde(default)]
     pub commit_errors: u64,
-    /// What caused the display to be blanked (SDS v6 §5.12, delta §6/§8):
+    /// What caused the display to be blanked:
     /// `none` (active), `idle` (idle timer), or `command` (`power.blank`).
     /// Defaults to `none` for backward compatibility with v5 status payloads.
     #[serde(default = "blank_source_default")]
@@ -124,7 +124,7 @@ fn blank_source_default() -> String {
     "none".to_owned()
 }
 
-/// Why a resident app is paused (SDS v6 §5.13). Mirrors the SDK's
+/// Why a resident app is paused. Mirrors the SDK's
 /// `PauseCauses`: an app may be paused because it lost focus, because the
 /// display was blanked, or both. Carried inline on [`PerAppStatus`] and in the
 /// lifecycle snapshot / `app.state` event `cause`.
@@ -134,7 +134,7 @@ pub struct PauseCauses {
     pub blanked: bool,
 }
 
-/// Per-reason dropped-frame counters (SDS §5.1 / §11.1).
+/// Per-reason dropped-frame counters.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct FramesDropped {
     pub displayed: u64,
@@ -144,19 +144,18 @@ pub struct FramesDropped {
     pub blanked: u64,
 }
 
-/// `per app:` map entry (SDS §11.1).
+/// `per app:` map entry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PerAppStatus {
     pub pid: Option<u32>,
     pub systemd_unit: String,
     pub connection_state: String,
-    /// Resident-session state (SDS v6 §1.1 / delta §6):
+    /// Resident-session state:
     /// `starting | focused | paused | stopping`. Empty string for apps with
     /// no tracked session (v5 compatibility / launcher).
     #[serde(default)]
     pub state: String,
-    /// Monotonic focus stamp; eviction order is by this value (SDS v6 §1.2 /
-    /// delta §6). `0` if the session has never been focused or is untracked.
+    /// Monotonic focus stamp; eviction order is by this value. `0` if the session has never been focused or is untracked.
     #[serde(default)]
     pub last_focused: u64,
     pub last_present_seq: u64,
@@ -170,7 +169,7 @@ pub struct PerAppStatus {
     pub present_to_displayed_latency_p95_ms: Option<f32>,
     pub remote_sender_drops: u64,
     /// Last `video_latency_us` value reported via `client.stats`
-    /// (SDS §6.1). `None` until the first stats event arrives.
+    /// `None` until the first stats event arrives.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latest_video_latency_us: Option<u64>,
     /// Cumulative remote-sender dropped frames reported via
@@ -180,9 +179,9 @@ pub struct PerAppStatus {
     /// Last `last_seq` value reported via `client.stats`.
     #[serde(default)]
     pub last_seq: u64,
-    /// Why this session is paused (SDS v6 §5.13). `None` for sessions that are
+    /// Why this session is paused. `None` for sessions that are
     /// not paused or predate the field; omitted from the wire when absent so
-    /// the pre-§5.13 session shape round-trips unchanged.
+    /// the earlier session shape round-trips unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pause_causes: Option<PauseCauses>,
 }

@@ -1,7 +1,7 @@
-//! Loader for `schema.toml` (SDS §5.4).
+//! Loader for `schema.toml`.
 //!
 //! Uses `IndexMap` to preserve the insertion order of parameters as they
-//! appear in the TOML source. Also provides a `Schema::builder()` API used
+//! appear in the TOML source. Also provides a `Schema::builder` API used
 //! by the cube-presets crate.
 
 use std::path::Path;
@@ -17,7 +17,7 @@ use crate::system::ConfigError;
 // ParamType
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// The type of a schema parameter (SDS §5.4).
+/// The type of a schema parameter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ParamType {
@@ -36,7 +36,7 @@ pub enum ParamType {
 // UiMeta
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Optional UI metadata for a parameter (SDS §5.4).
+/// Optional UI metadata for a parameter.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct UiMeta {
     pub group: Option<String>,
@@ -48,7 +48,7 @@ pub struct UiMeta {
 // ParamDef
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Definition of a single parameter in the schema (SDS §5.4).
+/// Definition of a single parameter in the schema.
 #[derive(Debug, Clone)]
 pub struct ParamDef {
     pub key: String,
@@ -74,7 +74,7 @@ pub struct ParamDef {
 // GamepadSchema
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Optional `[gamepad]` section in `schema.toml` (cube#17).
+/// Optional `[gamepad]` section in `schema.toml`.
 ///
 /// Controls system-level gamepad behaviours that cubed applies on behalf of
 /// the app. All fields default to the "standard animation" behaviour; apps
@@ -92,7 +92,9 @@ pub struct GamepadSchema {
 
 impl Default for GamepadSchema {
     fn default() -> Self {
-        Self { l1r1_preset_switching: true }
+        Self {
+            l1r1_preset_switching: true,
+        }
     }
 }
 
@@ -100,7 +102,7 @@ impl Default for GamepadSchema {
 // Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Parsed `schema.toml` (SDS §5.4).
+/// Parsed `schema.toml`.
 #[derive(Debug)]
 pub struct Schema {
     /// App name this schema belongs to (empty string when loaded from file).
@@ -206,7 +208,7 @@ impl SchemaBuilder {
     }
 
     /// Finish building the schema.
-    #[must_use] 
+    #[must_use]
     pub fn build(self) -> Schema {
         Schema {
             app: self.app,
@@ -238,11 +240,13 @@ struct RawGamepad {
 
 impl Default for RawGamepad {
     /// A missing `[gamepad]` section means the documented defaults — preset
-    /// switching ON (cube#17; mirrors [`GamepadSchema::default`]). The derived
+    /// switching ON (; mirrors [`GamepadSchema::default`]). The derived
     /// `Default` used `false` here, silently disabling L1/R1 preset switching
     /// for every app without an explicit `[gamepad]` table.
     fn default() -> Self {
-        Self { l1r1_preset_switching: true }
+        Self {
+            l1r1_preset_switching: true,
+        }
     }
 }
 
@@ -251,7 +255,7 @@ struct RawParamDef {
     key: String,
     #[serde(rename = "type")]
     ty: ParamType,
-    /// The raw TOML value (must be present per SDS §5.4).
+    /// The raw TOML value (must be present).
     default: Option<toml::Value>,
     min: Option<toml::Value>,
     max: Option<toml::Value>,
@@ -432,8 +436,8 @@ pub fn load_schema(path: &Path) -> Result<Schema, ConfigError> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Emission (the "agree by construction" counterpart of the loader; SDS §5.4,
-// cubekit-spec §9.4)
+// Emission (the "agree by construction" counterpart of the loader;,
+// cubekit-spec)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Lowercase TOML token for a [`ParamType`] (`[params.<key>] type`).
@@ -480,11 +484,11 @@ fn param_value_to_toml(v: &ParamValue) -> Value {
     }
 }
 
-/// Serialize a [`Schema`] to `schema.toml` text (SDS §5.4).
+/// Serialize a [`Schema`] to `schema.toml` text.
 ///
 /// The output is deterministic and key-sorted (a `toml::value::Table` is a
 /// sorted map) and is accepted and round-tripped by [`load_schema`]. This is
-/// the emission half of "agree by construction" (cubekit-spec §9.4): the same
+/// the emission half of "agree by construction" (cubekit-spec): the same
 /// crate that loads `schema.toml` also emits it, so emitter and loader cannot
 /// drift.
 #[must_use]
@@ -499,7 +503,10 @@ pub fn schema_to_toml(s: &Schema) -> String {
     for (key, def) in &s.params {
         let mut t = Table::new();
         t.insert("key".into(), Value::String(def.key.clone()));
-        t.insert("type".into(), Value::String(param_type_token(def.ty).into()));
+        t.insert(
+            "type".into(),
+            Value::String(param_type_token(def.ty).into()),
+        );
         t.insert("default".into(), param_value_to_toml(&def.default));
 
         if let Some(min) = &def.min {
@@ -550,10 +557,13 @@ fn convert_raw_param(
     rp: RawParamDef,
     parse_err: &impl Fn(String) -> ConfigError,
 ) -> Result<ParamDef, ConfigError> {
-    // `default` is required per SDS §5.4.
-    let default_toml = rp
-        .default
-        .ok_or_else(|| parse_err(format!("param {:?}: missing required field `default`", rp.key)))?;
+    // `default` is required.
+    let default_toml = rp.default.ok_or_else(|| {
+        parse_err(format!(
+            "param {:?}: missing required field `default`",
+            rp.key
+        ))
+    })?;
 
     let default = toml_to_param_value(rp.ty, &default_toml)
         .map_err(|e| parse_err(format!("param {:?} default: {e}", rp.key)))?;
@@ -572,7 +582,7 @@ fn convert_raw_param(
         .transpose()
         .map_err(|e| parse_err(format!("param {:?} max: {e}", rp.key)))?;
 
-    // min > max is a validation error (SDS §5.4).
+    // min > max is a validation error.
     if let (Some(mn), Some(mx)) = (&min, &max)
         && param_gt(mn, mx)
     {
@@ -589,7 +599,7 @@ fn convert_raw_param(
         .transpose()
         .map_err(|e| parse_err(format!("param {:?} step: {e}", rp.key)))?;
 
-    // Enum type requires a non-empty `values` list (SDS §5.4).
+    // Enum type requires a non-empty `values` list.
     if rp.ty == ParamType::Enum && rp.values.as_ref().is_none_or(Vec::is_empty) {
         return Err(parse_err(format!(
             "param {:?}: type 'enum' requires a non-empty `values` array",

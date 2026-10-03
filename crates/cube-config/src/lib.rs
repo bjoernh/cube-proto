@@ -1,7 +1,7 @@
 //! Configuration loaders for the cube system.
 //!
-//! See SDS §6.4 (system.toml example), §7.2 (manifest format), §5.4
-//! (schema format), and ARCH §4.11 (SIGHUP reload pattern).
+//! (system.toml example), (manifest format),.4
+//! (schema format), and (SIGHUP reload pattern).
 
 #![deny(warnings)]
 

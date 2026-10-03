@@ -1,11 +1,11 @@
-//! `doctor.report` payload — SDS §11.1.
+//! `doctor.report` payload —.
 //!
 //! Carried in `Response.result`. A `DoctorReportPayload` lists the outcome of
 //! every check `cubectl doctor` runs.
 
 use serde::{Deserialize, Serialize};
 
-/// Severity of an individual check (SDS §11.1).
+/// Severity of an individual check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CheckLevel {
@@ -14,7 +14,7 @@ pub enum CheckLevel {
     Fail,
 }
 
-/// Outcome of a single doctor check (SDS §11.1).
+/// Outcome of a single doctor check.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CheckResult {
     pub name: String,

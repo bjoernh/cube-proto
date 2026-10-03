@@ -1,4 +1,4 @@
-//! Advisory `flock(LOCK_EX)` semantics on `<user_root>/<app>/.lock` (SDS §5.6).
+//! Advisory `flock(LOCK_EX)` semantics on `<user_root>/<app>/.lock`.
 //!
 //! - While `cubed` holds the lock around a save, an external observer using
 //!   `LOCK_EX | LOCK_NB` on the same path gets `EWOULDBLOCK`.
@@ -35,13 +35,13 @@ fn preset_file() -> PresetFile {
 }
 
 #[test]
-fn flock_blocks_concurrent_saver_sds_5_6() {
+fn flock_blocks_concurrent_saver() {
     let tmp = tempfile::tempdir().unwrap();
     let (system_root, user_root) = common::make_layout(tmp.path(), "x");
     let lock_path = user_root.join("x/.lock");
 
     // Mid-save barrier. RecordingFsOps holds the barrier *between*
-    // FsyncFile and Rename so the lock is still held by `save()`.
+    // FsyncFile and Rename so the lock is still held by `save`.
     let barrier = Arc::new(Barrier::new(2));
     let fs = RecordingFsOps::with_barrier_after(
         tmp.path(),
@@ -59,7 +59,7 @@ fn flock_blocks_concurrent_saver_sds_5_6() {
             .expect("save must succeed");
     });
 
-    // Wait long enough that the save has acquired the .lock and reached the
+    // Wait long enough that the save has acquired the.lock and reached the
     // barrier. We need the lock file to exist before probing.
     let mut tries = 0;
     while !lock_path.exists() && tries < 500 {
@@ -78,14 +78,10 @@ fn flock_blocks_concurrent_saver_sds_5_6() {
         .expect("open .lock for probe");
     let (probe, err) = Flock::lock(probe, FlockArg::LockExclusiveNonblock)
         .expect_err("expected flock to fail with EWOULDBLOCK while save holds the lock");
-    assert_eq!(
-        err,
-        nix::errno::Errno::EWOULDBLOCK,
-        "got errno {err:?}"
-    );
+    assert_eq!(err, nix::errno::Errno::EWOULDBLOCK, "got errno {err:?}");
     drop(probe);
 
-    // Release the barrier; save() proceeds and unlocks.
+    // Release the barrier; save proceeds and unlocks.
     barrier.wait();
     save_handle.join().expect("save thread must succeed");
 

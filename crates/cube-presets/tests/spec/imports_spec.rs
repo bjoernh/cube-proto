@@ -1,7 +1,7 @@
-//! Cross-reference tests that pin SDS §5.5's concrete worked examples.
+//! Cross-reference tests that pin's concrete worked examples.
 //!
 //! Each literal here is a verbatim copy of the example block in
-//! `Cube 2.0 — System Design Specification-v4.md §5.5` (line numbers below).
+//! `Cube 2.0 — System Design Specification-v4.md.5` (line numbers below).
 //!
 //! NOTE: this file is included from `tests/spec.rs`.
 
@@ -16,7 +16,7 @@ mod common;
 use cube_presets::WarningCode;
 use serde_json::{Value, json};
 
-/// SDS §5.5 (≈ line 485–498) defined-codes example:
+/// (≈ line 485–498) defined-codes example:
 ///
 /// ```json
 /// {
@@ -31,7 +31,7 @@ use serde_json::{Value, json};
 /// }
 /// ```
 #[test]
-fn sds_5_5_warnings_literal_codes_are_screaming_snake_sds_5_5() {
+fn warnings_literal_codes_are_screaming_snake() {
     let j: Value = json!({
         "id": 42,
         "ok": true,
@@ -53,15 +53,18 @@ fn sds_5_5_warnings_literal_codes_are_screaming_snake_sds_5_5() {
     assert_eq!(unknown, WarningCode::UnknownDropped);
 }
 
-/// SDS §5.5 defines four codes total. Pin them all so a renamed variant in
+/// defines four codes total. Pin them all so a renamed variant in
 /// `cube_presets` triggers a failure here, not silently in `cubectl` output.
 #[test]
-fn sds_5_5_all_four_warning_codes_round_trip_sds_5_5() {
+fn all_four_warning_codes_round_trip() {
     let cases = [
         (WarningCode::UnknownDropped, "\"UNKNOWN_DROPPED\""),
         (WarningCode::Clamped, "\"CLAMPED\""),
         (WarningCode::ReadonlyDropped, "\"READONLY_DROPPED\""),
-        (WarningCode::NonShareableDropped, "\"NON_SHAREABLE_DROPPED\""),
+        (
+            WarningCode::NonShareableDropped,
+            "\"NON_SHAREABLE_DROPPED\"",
+        ),
     ];
     for (code, wire) in cases {
         let ser = serde_json::to_string(&code).unwrap();
@@ -71,22 +74,31 @@ fn sds_5_5_all_four_warning_codes_round_trip_sds_5_5() {
     }
 }
 
-/// SDS §5.5 mandates rejecting `meta.app` mismatch with `ENOAPP` and
+/// mandates rejecting `meta.app` mismatch with `ENOAPP` and
 /// `meta.schema_version` mismatch with `EVERSION`, with the version error
 /// naming both the expected and observed version (so the user knows what
 /// happened).
 #[test]
-fn sds_5_5_eversion_error_message_mentions_both_versions_sds_5_5() {
-    let e = cube_presets::PresetError::SchemaVersionMismatch { expected: 7, got: 3 };
+fn eversion_error_message_mentions_both_versions() {
+    let e = cube_presets::PresetError::SchemaVersionMismatch {
+        expected: 7,
+        got: 3,
+    };
     let msg = e.to_string();
-    assert!(msg.contains('7'), "expected msg to mention expected=7; got {msg:?}");
-    assert!(msg.contains('3'), "expected msg to mention got=3; got {msg:?}");
+    assert!(
+        msg.contains('7'),
+        "expected msg to mention expected=7; got {msg:?}"
+    );
+    assert!(
+        msg.contains('3'),
+        "expected msg to mention got=3; got {msg:?}"
+    );
 }
 
-/// SDS §5.5: "v1 deliberately has no migration mechanism". Pin the variant
+///: "v1 deliberately has no migration mechanism". Pin the variant
 /// name to flag any accidental introduction of a `Migrated` warning code.
 #[test]
-fn sds_5_5_no_migration_warning_variant_exists_sds_5_5() {
+fn no_migration_warning_variant_exists() {
     // If someone adds a `Migrated` variant this function no longer compiles
     // because the match would no longer be exhaustive — that's the contract.
     fn assert_exhaustive(w: WarningCode) {
@@ -100,11 +112,11 @@ fn sds_5_5_no_migration_warning_variant_exists_sds_5_5() {
     let _ = assert_exhaustive;
 }
 
-/// SDS §5.5 preset format: `[meta]` (app, `schema_version`, `preset_name`,
+/// preset format: `[meta]` (app, `schema_version`, `preset_name`,
 /// optional author/description/created/version) + `[params]` (key=value).
 /// Round-trip a self-describing preset through `cube_presets::PresetFile`.
 #[test]
-fn sds_5_5_preset_file_round_trips_through_toml_sds_5_5() {
+fn preset_file_round_trips_through_toml() {
     let body = r#"
 [meta]
 app = "x"
@@ -119,7 +131,7 @@ version = "1.0"
 speed = { type = "int", value = 5 }
 "#;
     let parsed: cube_presets::PresetFile =
-        toml::from_str(body).expect("PresetFile must parse SDS §5.5 example shape");
+        toml::from_str(body).expect("PresetFile must parse example shape");
     assert_eq!(parsed.meta.app, "x");
     assert_eq!(parsed.meta.schema_version, 1);
     assert_eq!(parsed.meta.preset_name, "demo");

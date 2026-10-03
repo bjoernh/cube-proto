@@ -1,7 +1,7 @@
-//! Wave 15: round-trip tests for `StatusReport` and `DoctorReportPayload`.
+//! round-trip tests for `StatusReport` and `DoctorReportPayload`.
 //!
 //! These are the payloads carried inside `Response.result` for the
-//! `status` and `doctor.report` commands (SDS §11.1).
+//! `status` and `doctor.report` commands.
 
 use std::collections::BTreeMap;
 
@@ -13,7 +13,7 @@ use serde_json::json;
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn status_report_roundtrips_every_field_sds_11_1() {
+fn status_report_roundtrips_every_field() {
     let mut per_app = BTreeMap::new();
     per_app.insert(
         "picture".to_owned(),
@@ -82,13 +82,13 @@ fn status_report_roundtrips_every_field_sds_11_1() {
 
     let v = serde_json::to_value(&report).unwrap();
 
-    // Every SDS §11.1 cubed-field present.
+    // Every cubed-field present.
     assert!(v["cubed"]["version"].is_string());
     assert!(v["cubed"]["uptime_seconds"].is_number());
     assert!(v["cubed"]["protocol_version"].is_string());
     assert!(v["cubed"]["focused_app"].is_string());
     assert!(v["cubed"]["launcher_state"].is_string());
-    // SDS v6 §1.2 / delta §6: residency cap vs current count.
+    // residency cap vs current count.
     assert!(v["cubed"]["resident_apps"].is_number());
     assert!(v["cubed"]["max_resident"].is_number());
     // display section.
@@ -117,7 +117,7 @@ fn status_report_roundtrips_every_field_sds_11_1() {
     assert!(app["dropped_frames"]["displayed"].is_number());
     assert!(app["parameter_seq"].is_number());
     assert!(app["input_events_forwarded"].is_number());
-    // SDS v6 §1.1 / delta §6: per-session resident state + last_focused.
+    // per-session resident state + last_focused.
     assert!(app["state"].is_string());
     assert!(app["last_focused"].is_number());
     assert!(app["present_to_displayed_latency_mean_ms"].is_number());
@@ -129,11 +129,11 @@ fn status_report_roundtrips_every_field_sds_11_1() {
     assert_eq!(back, report);
 }
 
-/// SDS v6 §1.1/§1.2 / delta §6: a v5 status payload (no `resident_apps` /
+/// a v5 status payload (no `resident_apps` /
 /// `max_resident` / per-app `state` / `last_focused`) still deserializes,
 /// defaulting the new fields to v5-equivalent values.
 #[test]
-fn v5_status_payload_without_v6_fields_deserializes_with_defaults_sds_6() {
+fn v5_status_payload_without_v6_fields_deserializes_with_defaults() {
     let v5_json = serde_json::json!({
         "cubed": {
             "version": "0.1.0",
@@ -188,7 +188,7 @@ fn v5_status_payload_without_v6_fields_deserializes_with_defaults_sds_6() {
 }
 
 #[test]
-fn doctor_report_payload_roundtrips_sds_11_1() {
+fn doctor_report_payload_roundtrips() {
     let payload = DoctorReportPayload {
         checks: vec![
             CheckResult {
@@ -219,8 +219,14 @@ fn doctor_report_payload_roundtrips_sds_11_1() {
 }
 
 #[test]
-fn doctor_check_level_serializes_lowercase_sds_11_1() {
+fn doctor_check_level_serializes_lowercase() {
     assert_eq!(serde_json::to_value(CheckLevel::Ok).unwrap(), json!("ok"));
-    assert_eq!(serde_json::to_value(CheckLevel::Warn).unwrap(), json!("warn"));
-    assert_eq!(serde_json::to_value(CheckLevel::Fail).unwrap(), json!("fail"));
+    assert_eq!(
+        serde_json::to_value(CheckLevel::Warn).unwrap(),
+        json!("warn")
+    );
+    assert_eq!(
+        serde_json::to_value(CheckLevel::Fail).unwrap(),
+        json!("fail")
+    );
 }

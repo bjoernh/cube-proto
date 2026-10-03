@@ -1,4 +1,4 @@
-//! UDP handshake datagram (SDS v5 §6.2).
+//! UDP handshake datagram.
 //!
 //! The first datagram sent on the UDP frame socket carries magic `CUBH`,
 //! the `session_token`, and the negotiated format/dimensions. Distinct
@@ -41,7 +41,7 @@ pub struct HandshakeDatagram {
 
 impl HandshakeDatagram {
     /// Encode to a 36-byte array (all fields little-endian).
-    #[must_use] 
+    #[must_use]
     pub fn encode(self) -> [u8; HANDSHAKE_BYTES] {
         let mut buf = [0u8; HANDSHAKE_BYTES];
         buf[0..4].copy_from_slice(&self.magic.to_le_bytes());

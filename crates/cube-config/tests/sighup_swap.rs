@@ -1,6 +1,6 @@
-//! Tests for `cube_config::SystemConfigHandle` atomic swap (ARCH §4.11).
+//! Tests for `cube_config::SystemConfigHandle` atomic swap.
 //!
-//! ARCH §4.11: "Reads `/etc/cube/system.toml` once at startup into an
+//!: "Reads `/etc/cube/system.toml` once at startup into an
 //! `Arc<SystemConfig>`. On SIGHUP, re-reads and atomically swaps the Arc.
 //! Modules that need config snapshot the Arc on demand." A reader that
 //! already holds an Arc snapshot must continue to see the *old* values even
@@ -79,13 +79,13 @@ fn config_handle_swap_replaces_arc_arch_4_11() {
 #[test]
 fn config_handle_old_snapshot_survives_swap_arch_4_11() {
     // The snapshot-on-demand contract: a holder of an old Arc must continue
-    // to see the values from the pre-swap snapshot until they re-load().
+    // to see the values from the pre-swap snapshot until they re-load.
     let h = SystemConfigHandle::new(make_cfg(60));
     let pinned = h.load();
     h.swap(make_cfg(120));
     assert_eq!(
         pinned.display.refresh_hz, 60,
-        "old Arc snapshot must outlive a swap (ARCH §4.11)"
+        "old Arc snapshot must outlive a swap"
     );
     let fresh = h.load();
     assert_eq!(fresh.display.refresh_hz, 120);

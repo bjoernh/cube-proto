@@ -1,0 +1,40 @@
+# cube-proto CI — fmt, clippy, build + test on every PR (and on manual dispatch).
+#
+# Forgejo (git.64b.de) is the canonical home; GitHub mirrors it and runs the
+# equivalent workflow in .github/workflows/ci.yml. All dependencies are public
+# (crates.io), so no credentials are needed.
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: agent-docker-runner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: fmt + clippy + test (cargo)
+        run: |
+          set -eu
+          CACHE="$HOME/.cache/ledcube-ci"
+          REPO="$(basename "$GITHUB_REPOSITORY")"
+          mkdir -p "$CACHE/cargo" "$CACHE/rustup" "$CACHE/target/$REPO"
+          docker run --rm \
+            -e CARGO_HOME=/cargo -e RUSTUP_HOME=/rustup -e CARGO_TARGET_DIR=/target \
+            -v "$CACHE/cargo:/cargo" -v "$CACHE/rustup:/rustup" \
+            -v "$CACHE/target/$REPO:/target" \
+            -v "$PWD:/w:ro" -w /w \
+            rust:1-bookworm \
+            bash -ceu '
+              rustup show
+              cargo fmt --all -- --check
+              cargo clippy --workspace --all-targets --locked -- -D warnings
+              cargo test --workspace --locked
+            '

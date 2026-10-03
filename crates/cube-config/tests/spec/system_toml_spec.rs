@@ -1,7 +1,7 @@
-//! Verbatim SDS §6.4 worked-example pinning test.
+//! Verbatim worked-example pinning test.
 //!
 //! The fixture at `tests/fixtures/system_full.toml` is a byte-for-byte copy of
-//! the §6.4 example block. This test asserts:
+//! the example block. This test asserts:
 //!
 //! 1. The fixture text loaded from disk matches the documented values.
 //! 2. Round-tripping through serialize → re-parse yields a structurally
@@ -21,10 +21,11 @@ fn fixture_path() -> PathBuf {
 }
 
 #[test]
-fn sds_6_4_fixture_matches_normative_values_sds_6_4() {
-    let (cfg, _report) = load_system(&fixture_path()).expect("verbatim §6.4 example must parse");
+fn fixture_matches_normative_values() {
+    let (cfg, _report) =
+        load_system(&fixture_path()).expect("verbatim system.toml example must parse");
 
-    // Display — every literal in the §6.4 example.
+    // Display — every literal in the example.
     assert_eq!(cfg.display.drm_driver, "cube-fpga-rpispi");
     assert_eq!(cfg.display.connector, "Cube-1");
     assert_eq!(cfg.display.mode, "384x64@60");
@@ -37,8 +38,8 @@ fn sds_6_4_fixture_matches_normative_values_sds_6_4() {
     assert_eq!(cfg.remote_render.port, 2017);
     assert_eq!(cfg.remote_render.mtu_hint, "jumbo_recommended");
 
-    // Input — reserved keys are canonical button names (cube-gamepad spec
-    // supersedes the SDS §6.4 evdev spelling; back-compat lives in the
+    // Input — reserved keys are canonical button names
+    // (the evdev spelling is still accepted; back-compat lives in the
     // classifier).
     assert_eq!(
         cfg.input.system_controller_name_pattern.as_deref(),
@@ -61,7 +62,7 @@ fn sds_6_4_fixture_matches_normative_values_sds_6_4() {
 }
 
 #[test]
-fn sds_6_4_fixture_round_trips_through_serialization_sds_6_4() {
+fn fixture_round_trips_through_serialization() {
     // Parse → serialize → re-parse → expect structural equivalence.
     let (cfg, _) = load_system(&fixture_path()).unwrap();
 

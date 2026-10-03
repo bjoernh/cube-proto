@@ -1,4 +1,4 @@
-//! Error type for the shared admin-socket client (SDS §5.3 / §6.1).
+//! Error type for the shared admin-socket client.
 
 /// Errors from the control-plane client. Re-exported by `cube-midi-bridge` as
 /// `cube_midi_bridge::error::ClientError` so the bridge's existing call sites

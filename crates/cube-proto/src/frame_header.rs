@@ -1,4 +1,4 @@
-//! Binary frame-stream header (SDS §6.2).
+//! Binary frame-stream header.
 //!
 //! Each binary frame sent over the remote-render channel is prefixed by a
 //! 16-byte `FrameHeader` encoded in little-endian byte order.
@@ -38,7 +38,7 @@ pub struct FrameHeader {
 
 impl FrameHeader {
     /// Encode the header to a 16-byte array (little-endian).
-    #[must_use] 
+    #[must_use]
     pub fn encode(self) -> [u8; FRAME_HEADER_BYTES] {
         let mut buf = [0u8; FRAME_HEADER_BYTES];
         buf[0..4].copy_from_slice(&self.magic.to_le_bytes());
@@ -71,7 +71,12 @@ impl FrameHeader {
         if reserved != 0 {
             return Err(FrameHeaderError::NonZeroReserved);
         }
-        Ok(Self { magic, seq, reserved2, reserved })
+        Ok(Self {
+            magic,
+            seq,
+            reserved2,
+            reserved,
+        })
     }
 }
 
@@ -86,7 +91,7 @@ pub struct SeqGuard {
 impl SeqGuard {
     /// Create a new guard.  `_initial` is currently unused but kept for API
     /// forward-compatibility.
-    #[must_use] 
+    #[must_use]
     pub fn new(_initial: u32) -> Self {
         Self { last: None }
     }

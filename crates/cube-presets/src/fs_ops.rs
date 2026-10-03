@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A recorded filesystem call made via `FsOps`. Used by `RecordingFsOps` to
-/// assert call ordering (SDS §5.6).
+/// assert call ordering.
 #[derive(Debug, Clone)]
 pub enum FsCall {
     /// Write `content` to a new temp file at `path`.
@@ -141,7 +141,7 @@ pub struct RecordingFsOps {
     inner: RealFsOps,
     /// Shared call log.
     pub calls: Arc<Mutex<Vec<FsCall>>>,
-    /// If set, the `RecordingFsOps` will call `barrier.wait()` after the
+    /// If set, the `RecordingFsOps` will call `barrier.wait` after the
     /// first call whose discriminant matches `barrier_after`.
     barrier: Option<(BarrierTrigger, Arc<std::sync::Barrier>)>,
 }
@@ -154,7 +154,7 @@ enum BarrierTrigger {
 
 impl RecordingFsOps {
     /// Create a `RecordingFsOps` with no barrier.
-    #[must_use] 
+    #[must_use]
     pub fn new(_root: &Path) -> Self {
         Self {
             inner: RealFsOps,
@@ -233,10 +233,7 @@ impl FsOps for RecordingFsOps {
 
     fn fsync_parent(&self, target: &Path) -> std::io::Result<()> {
         self.inner.fsync_parent(target)?;
-        let parent = target
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_default();
+        let parent = target.parent().map(Path::to_path_buf).unwrap_or_default();
         let call = FsCall::FsyncParent(parent);
         self.record(call.clone());
         self.maybe_barrier(&call);

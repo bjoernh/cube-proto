@@ -1,4 +1,4 @@
-//! Unsolicited event types (SDS §5.1, §5.3, §5.4, §5.7.1, §5.12, §6.1).
+//! Unsolicited event types.
 //!
 //! `Event` is internally tagged on `"event"`.
 
@@ -14,7 +14,7 @@ use crate::value::ParamValue;
 // Nested enums
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Reason a buffer was released (SDS §5.1, §5.12).
+/// Reason a buffer was released.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseReason {
@@ -25,7 +25,7 @@ pub enum ReleaseReason {
     Blanked,
 }
 
-/// Display power state (SDS §5.12).
+/// Display power state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PowerState {
@@ -33,8 +33,7 @@ pub enum PowerState {
     Blanked,
 }
 
-/// Why a bounded subscription was terminated by the daemon (SDS v6 §5.13
-/// "Bounded subscriptions"). Delivered as the `reason` of the final
+/// Why a bounded subscription was terminated by the daemon. Delivered as the `reason` of the final
 /// [`Event::SubscriptionEnded`] event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,15 +42,15 @@ pub enum SubscriptionEndReason {
     MaxEvents,
     /// The `timeout_ms` deadline elapsed.
     Timeout,
-    /// The per-connection outbox overflowed (back-pressure shed, §5.13).
+    /// The per-connection outbox overflowed (back-pressure shed,).
     Overflow,
 }
 
-/// Reason a presented frame was dropped (SDS v5 §6.2; SDS v6 §6.2).
+/// Reason a presented frame was dropped.
 ///
-/// v6 §6.2 pins the remote `present.dropped` vocabulary to exactly
+/// v6 pins the remote `present.dropped` vocabulary to exactly
 /// `too_late | fragmented | focus_lost`. `Blanked` is retained here because
-/// the local `buffer.release` event (SDS §5.1, §5.12) still carries
+/// the local `buffer.release` event still carries
 /// `reason:"blanked"` and shares this enum's wire representation; v6 does
 /// not remove `blanked` from `buffer.release`, only from the `present.dropped`
 /// remote vocabulary. No `present.dropped {reason:"blanked"}` literal is
@@ -66,7 +65,7 @@ pub enum PresentDroppedReason {
     Blanked,
 }
 
-/// Reason `focus.lost` was emitted (SDS v6 §5.2, §6.1).
+/// Reason `focus.lost` was emitted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FocusLostReason {
@@ -75,11 +74,11 @@ pub enum FocusLostReason {
     /// The Home key returned focus to the launcher.
     Home,
     /// Emitted on the stop path before the stop sequence proceeds
-    /// (pause-before-stop, SDS v6 §5.2).
+    /// (pause-before-stop).
     Stopping,
 }
 
-/// Why a client overlay was dismissed (SDS v7 §5.13, §6.1). Delivered as the
+/// Why a client overlay was dismissed. Delivered as the
 /// `reason` of an [`Event::OverlayDismissed`] event to the overlay's owner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,7 +92,7 @@ pub enum OverlayDismissReason {
     /// A dismissal reason this build does not recognize — a forward-compat
     /// catch-all so a future `cubed` reason token (e.g. `evicted`) is always
     /// decodable rather than a strict-deserialization hard error. Both SDKs map
-    /// an unknown token here (cross-SDK symmetry, issue LEDCube/cube#33); the
+    /// an unknown token here (cross-SDK symmetry); the
     /// app contract is identical to any other reason: stop presenting into the
     /// layer. Serializes to `"unknown"`.
     #[serde(other)]
@@ -111,7 +110,7 @@ pub enum ChangeSource {
     Midi,
     Preset,
     App,
-    /// The system param-overlay menu wrote this value (cube-system#24). Serializes
+    /// The system param-overlay menu wrote this value. Serializes
     /// to `"menu"`; the same live-and-persist store path as `cubectl`/`midi`, so
     /// the menu's own writes are attributable and echo-suppressible.
     Menu,
@@ -129,7 +128,7 @@ impl ChangeSource {
     /// `true` when the source is the default placeholder. Used as
     /// `skip_serializing_if` on `ParamChanged`/`ParamsChanged` so the
     /// wire stays clean when the daemon has no specific attribution.
-    #[must_use] 
+    #[must_use]
     pub fn is_unknown(&self) -> bool {
         matches!(self, Self::Unknown)
     }
@@ -145,7 +144,7 @@ impl ChangeSource {
 pub enum Event {
     // ── Lifecycle ────────────────────────────────────────────────────────────
     /// `event_seq` is the per-connection reliable-event sequence stamp added in
-    /// SDS v6 §5.13. Omitted on the wire (and `None`) for v5 daemons, so the
+    /// Omitted on the wire (and `None`) for v5 daemons, so the
     /// `{"event":"app.started","app":"snake"}` shape is byte-preserved.
     #[serde(rename = "app.started")]
     AppStarted {
@@ -154,14 +153,14 @@ pub enum Event {
         event_seq: Option<u64>,
     },
 
-    /// `reason` is a free-form wire vocabulary string (SDS v6 §6.1, §6.2).
+    /// `reason` is a free-form wire vocabulary string.
     /// Known values include `"normal"`, `"failed"`, `"register_timeout"`,
     /// `"replaced"`, `"control_lost"`, `"frame_handshake_timeout"`,
     /// `"frame_stream_lost"`, `"frame_stream_idle"`, and `"evicted"`
-    /// (LRU eviction, SDS v6 §5.13). Older daemons that omit `reason`
+    /// (LRU eviction). Older daemons that omit `reason`
     /// deserialize as `None`; the field is omitted on the wire when absent so
     /// v5 clients see the unchanged `{"event":"app.stopped","app":"snake"}`
-    /// shape. `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted
+    /// shape. `event_seq` is the reliable-event stamp (omitted
     /// when `None`).
     #[serde(rename = "app.stopped")]
     AppStopped {
@@ -172,8 +171,7 @@ pub enum Event {
         event_seq: Option<u64>,
     },
 
-    /// Resident-session state transition (SDS v6 §5.13 "Event payloads —
-    /// lifecycle"). `from`/`to` are the v6 lifecycle state strings
+    /// Resident-session state transition. `from`/`to` are the v6 lifecycle state strings
     /// (`starting | focused | paused | stopping`). `cause` is present only on
     /// focus/blank pause edges and omitted otherwise. `event_seq` is the
     /// reliable-event stamp.
@@ -188,8 +186,7 @@ pub enum Event {
         event_seq: Option<u64>,
     },
 
-    /// Focus moved between resident apps (SDS v6 §5.13 "Event payloads —
-    /// lifecycle"). `focused_app` is absent when focus drops to nothing;
+    /// Focus moved between resident apps. `focused_app` is absent when focus drops to nothing;
     /// `previous` is absent for the first focus after boot. `event_seq` is the
     /// reliable-event stamp.
     #[serde(rename = "focus.changed")]
@@ -202,21 +199,20 @@ pub enum Event {
         event_seq: Option<u64>,
     },
 
-    /// Reliable-tier (SDS v6 §5.3 classification): a non-reading app trips
+    /// Reliable-tier (classification): a non-reading app trips
     /// the existing fail-loud disconnect policy. Emitted on the app's own
-    /// connection on focus loss (SDS v6 §5.2, §6.1).
+    /// connection on focus loss.
     #[serde(rename = "focus.lost")]
     FocusLost { reason: FocusLostReason },
 
-    /// Reliable-tier (SDS v6 §5.3 classification), see [`Event::FocusLost`].
-    /// Always followed by `input.snapshot` before any `input.event`
-    /// (SDS v6 §5.2, §6.1).
+    /// Reliable-tier (classification), see [`Event::FocusLost`].
+    /// Always followed by `input.snapshot` before any `input.event`.
     #[serde(rename = "focus.gained")]
     FocusGained,
 
     // ── App-Store install progress (App-Store M1) ─────────────────────────────
     /// One line of apt output while an `apt.install` / `apt.upgrade` job runs.
-    /// `app` is the deb package name. `event_seq` is the SDS v6 §5.13 reliable-
+    /// `app` is the deb package name. `event_seq` is the reliable-
     /// event stamp (omitted on the wire when `None`).
     #[serde(rename = "install.progress")]
     InstallProgress {
@@ -241,8 +237,8 @@ pub enum Event {
     PresentDisplayed { seq: u64, buffer_id: u32 },
 
     /// A previously-presented buffer is free for the client to reuse
-    /// (SDS §5.1, §5.12). `layer` disambiguates *which* layer of a multi-layer
-    /// connection the buffer belonged to (SDS v7 §5.13, D7): absent (or `0`) is
+    /// `layer` disambiguates *which* layer of a multi-layer
+    /// connection the buffer belonged to: absent (or `0`) is
     /// the connection's **base** layer — the pre-compositor shape — while an
     /// overlay-buffer release carries the `layer` id returned by
     /// `overlay.acquire`. Additive and `skip_serializing_if`, so a base release
@@ -334,7 +330,7 @@ pub enum Event {
     /// per-device id (the BT HW address / evdev `uniq`, falling back to
     /// `ID_PATH`/`phys`) that differs between two identical-model pads, so a
     /// client can map each physical controller to its slot unambiguously
-    /// (LEDCube/cube#28); omitted when the device surfaced no stable id. Backs
+    ///; omitted when the device surfaced no stable id. Backs
     /// the companion's controller roster and per-player "Player N joined" UI; it
     /// is also the wire source for `cubekit`'s `RawEvent::Connected(true)`.
     #[serde(rename = "input.player_connected")]
@@ -401,9 +397,9 @@ pub enum Event {
     /// produced this canonical button — the symbolic kind (`key`/`btn`/`abs`/…),
     /// the symbolic code (e.g. `BTN_SOUTH`, `ABS_HAT0Y`), and the raw evdev
     /// value. They expose the pre-normalization wire value so an input
-    /// visualiser (`cubectl input watch`, LEDCube/cube#7) shows both the raw and
+    /// visualiser (`cubectl input watch`) shows both the raw and
     /// decoded view side by side, making axis-encoding bugs (unsigned `0..255`
-    /// vs zero-centred, LEDCube/cube#5) obvious at a glance. Additive: omitted
+    /// vs zero-centred) obvious at a glance. Additive: omitted
     /// by daemons that don't populate the tap, and they default to `None`.
     #[serde(rename = "input.capture")]
     InputSample {
@@ -419,7 +415,7 @@ pub enum Event {
     },
 
     // ── Power / system ───────────────────────────────────────────────────────
-    /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (omitted when
+    /// `event_seq` is the reliable-event stamp (omitted when
     /// `None`, preserving the v5 `{"event":"power.state","state":..}` shape).
     #[serde(rename = "power.state")]
     PowerState {
@@ -431,7 +427,7 @@ pub enum Event {
     #[serde(rename = "config.reloaded")]
     ConfigReloaded,
 
-    /// A client overlay is no longer composed (SDS v7 §5.13, §6.1): the owner
+    /// A client overlay is no longer composed: the owner
     /// must stop presenting into `layer`. `reason` is why it was dismissed.
     #[serde(rename = "overlay.dismissed")]
     OverlayDismissed {
@@ -439,9 +435,8 @@ pub enum Event {
         reason: OverlayDismissReason,
     },
 
-    // ── Telemetry / brightness / subscription control (SDS v6 §5.13) ──────────
-    /// Per-app frame telemetry sample (SDS v6 §5.13 "Event payloads —
-    /// telemetry"). Telemetry is a coalescible class: it carries no
+    // ── Telemetry / brightness / subscription control ──────────
+    /// Per-app frame telemetry sample. Telemetry is a coalescible class: it carries no
     /// `event_seq`. `drops_delta` is the drop count since the previous sample;
     /// `frame_seq` is the monotonic present sequence the sample was taken at.
     #[serde(rename = "app.stats")]
@@ -453,13 +448,12 @@ pub enum Event {
         frame_seq: u64,
     },
 
-    /// Global brightness changed (SDS v6 §5.13 "Event payloads — brightness").
+    /// Global brightness changed.
     /// Coalescible class: carries no `event_seq`, ever.
     #[serde(rename = "brightness.changed")]
     BrightnessChanged { value: u8 },
 
-    /// A bounded subscription was terminated by the daemon (SDS v6 §5.13
-    /// "Bounded subscriptions"): the final event delivered on that `sub_id`.
+    /// A bounded subscription was terminated by the daemon: the final event delivered on that `sub_id`.
     #[serde(rename = "subscription.ended")]
     SubscriptionEnded {
         sub_id: String,
@@ -467,7 +461,7 @@ pub enum Event {
     },
 
     // ── Remote rendering ─────────────────────────────────────────────────────
-    /// `event_seq` is the SDS v6 §5.13 per-connection reliable-event stamp
+    /// `event_seq` is the per-connection reliable-event stamp
     /// (workstream D): remote-render events now ride the daemon-wide event hub
     /// and are delivered through each subscriber's outbox (the `remote_render`
     /// class), so a subscriber orders them against the rest of its reliable
@@ -483,7 +477,7 @@ pub enum Event {
         event_seq: Option<u64>,
     },
 
-    /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (workstream D); see
+    /// `event_seq` is the reliable-event stamp (workstream D); see
     /// [`Event::FrameStreamBound`]. Omitted when `None`.
     #[serde(rename = "present.dropped")]
     PresentDropped {
@@ -493,7 +487,7 @@ pub enum Event {
         event_seq: Option<u64>,
     },
 
-    /// `event_seq` is the SDS v6 §5.13 reliable-event stamp (workstream D); see
+    /// `event_seq` is the reliable-event stamp (workstream D); see
     /// [`Event::FrameStreamBound`]. Omitted when `None`.
     #[serde(rename = "remote.frames_dropped")]
     RemoteFramesDropped {
@@ -538,7 +532,11 @@ mod change_source_tests {
             (ChangeSource::Menu, "\"menu\""),
             (ChangeSource::Unknown, "\"unknown\""),
         ] {
-            assert_eq!(serde_json::to_string(&src).unwrap(), wire, "serialize {src:?}");
+            assert_eq!(
+                serde_json::to_string(&src).unwrap(),
+                wire,
+                "serialize {src:?}"
+            );
             assert_eq!(
                 serde_json::from_str::<ChangeSource>(wire).unwrap(),
                 src,

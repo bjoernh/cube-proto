@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // Damage
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Dirty-rectangle hint for a `present` command (SDS §6.1).
+/// Dirty-rectangle hint for a `present` command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Damage {
     pub x: u32,
@@ -19,17 +19,17 @@ pub struct Damage {
 // Format
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Pixel format for a registered buffer (SDS §6.1, §5.13).
+/// Pixel format for a registered buffer.
 ///
 /// Base/app layers are `RGB565` (no alpha); overlay layers are `ARGB8888`
-/// (real alpha for `over` compositing — SDS v7 §5.13 / changelog "Pixel
+/// (real alpha for `over` compositing — / changelog "Pixel
 /// formats").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Format {
     #[serde(rename = "RGB565")]
     Rgb565,
-    /// 4 bytes/pixel with a real alpha byte — the overlay-layer format (W2/W3).
+    /// 4 bytes/pixel with a real alpha byte — the overlay-layer format.
     #[serde(rename = "ARGB8888")]
     Argb8888,
 }
@@ -38,7 +38,7 @@ pub enum Format {
 // Color
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// RGBA color (SDS §5.4). Serializes as `#RRGGBB` when α=0xFF, `#RRGGBBAA`
+/// RGBA color. Serializes as `#RRGGBB` when α=0xFF, `#RRGGBBAA`
 /// otherwise. Both forms are accepted on deserialize.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
@@ -49,13 +49,13 @@ pub struct Color {
 }
 
 impl Color {
-    #[must_use] 
+    #[must_use]
     pub fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
     }
 
     /// The `(r, g, b, a)` channels. Used by the system text-overlay path to
-    /// drive the glyph renderer's foreground colour (SDS v7 §5.13 / §6.1).
+    /// drive the glyph renderer's foreground colour.
     #[must_use]
     pub fn rgba(&self) -> (u8, u8, u8, u8) {
         (self.r, self.g, self.b, self.a)
@@ -114,14 +114,14 @@ fn parse_color(hex: &str) -> Option<Color> {
 // Vec2 / Vec3
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// 2-D float vector (SDS §5.4).
+/// 2-D float vector.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 
-/// 3-D float vector (SDS §5.4).
+/// 3-D float vector.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
     pub x: f32,
@@ -133,7 +133,7 @@ pub struct Vec3 {
 // ParamValue
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Typed parameter value (SDS §5.4).
+/// Typed parameter value.
 ///
 /// Tagged with `"type"` / `"value"` keys on the wire.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

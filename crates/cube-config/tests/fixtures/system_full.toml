@@ -24,7 +24,7 @@ mtu_hint = "jumbo_recommended"
 # Pattern matched against evdev device NAME via udev monitor.
 # Wildcards: shell-style globs.
 system_controller_name_pattern = "8BitDo*"
-# Reserved keys in CANONICAL button terms (cube-gamepad spec); Player 1 only.
+# Reserved keys in CANONICAL button terms ; Player 1 only.
 key_back   = "Select"
 key_home   = "Start"
 key_power  = "Guide"
@@ -38,4 +38,4 @@ yz_rotation_deg = 0.0
 mode = "hard_cut"                 # v1: hard_cut only
 
 [power]
-idle_blank_after_sec = 0          # 0 = disabled. Only applies while launcher is focused (§5.12).
+idle_blank_after_sec = 0          # 0 = disabled. Only applies while launcher is focused.

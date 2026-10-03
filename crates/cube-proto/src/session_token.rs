@@ -1,4 +1,4 @@
-//! Session-token validation (SDS §6.2).
+//! Session-token validation.
 //!
 //! Session tokens are URL-safe base64url (no padding) encoded strings
 //! representing at least 16 bytes of random material.

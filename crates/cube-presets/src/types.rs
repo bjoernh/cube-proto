@@ -59,9 +59,12 @@ mod chrono_datetime {
                     .time
                     .ok_or_else(|| serde::de::Error::custom("`created` is missing a time"))?;
 
-                let naive_date =
-                    NaiveDate::from_ymd_opt(i32::from(date.year), date.month.into(), date.day.into())
-                        .ok_or_else(|| serde::de::Error::custom("`created` has an invalid date"))?;
+                let naive_date = NaiveDate::from_ymd_opt(
+                    i32::from(date.year),
+                    date.month.into(),
+                    date.day.into(),
+                )
+                .ok_or_else(|| serde::de::Error::custom("`created` has an invalid date"))?;
                 let naive_time = NaiveTime::from_hms_nano_opt(
                     time.hour.into(),
                     time.minute.into(),
@@ -114,7 +117,7 @@ pub enum PresetOrigin {
 // PresetMeta
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// `[meta]` section of a preset TOML file (SDS §5.5 format).
+/// `[meta]` section of a preset TOML file (format).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PresetMeta {
     pub app: String,
@@ -142,7 +145,7 @@ pub struct PresetFile {
 // WarningCode
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Import warning codes (SDS §5.5).
+/// Import warning codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WarningCode {

@@ -1,6 +1,6 @@
-//! Tests for `cube_config::schema::Schema` (SDS §5.4).
+//! Tests for `cube_config::schema::Schema`.
 //!
-//! Schema is fully declarative — every per-param field listed in §5.4 has to
+//! Schema is fully declarative — every per-param field listed in has to
 //! round-trip. Tests cover: happy path, missing `schema_version`, missing
 //! `default`, `min > max`, enum without `values`, dimensionality mismatch on
 //! `vec2`, and insertion-order preservation via `IndexMap`.
@@ -17,7 +17,7 @@ fn write(toml: &str) -> std::path::PathBuf {
 }
 
 #[test]
-fn schema_parses_happy_path_sds_5_4() {
+fn schema_parses_happy_path() {
     let body = r##"
 schema_version = 1
 
@@ -86,7 +86,7 @@ values = ["classic", "neon", "retro"]
 }
 
 #[test]
-fn schema_defaults_required_true_readonly_false_shareable_true_sds_5_4() {
+fn schema_defaults_required_true_readonly_false_shareable_true() {
     let body = r#"
 schema_version = 1
 
@@ -100,13 +100,13 @@ default = true
     let p = write(body);
     let s = load_schema(&p).expect("schema must parse with defaults");
     let foo = &s.params["foo"];
-    assert!(foo.required, "required defaults to true (SDS §5.4)");
-    assert!(!foo.readonly, "readonly defaults to false (SDS §5.4)");
-    assert!(foo.shareable, "shareable defaults to true (SDS §5.4)");
+    assert!(foo.required, "required defaults to true");
+    assert!(!foo.readonly, "readonly defaults to false");
+    assert!(foo.shareable, "shareable defaults to true");
 }
 
 #[test]
-fn schema_missing_schema_version_errors_sds_5_4() {
+fn schema_missing_schema_version_errors() {
     let body = r#"
 [params.foo]
 key = "foo"
@@ -114,11 +114,11 @@ type = "int"
 default = 0
 "#;
     let p = write(body);
-    load_schema(&p).expect_err("missing schema_version must error (SDS §5.4)");
+    load_schema(&p).expect_err("missing schema_version must error");
 }
 
 #[test]
-fn schema_param_without_default_errors_sds_5_4() {
+fn schema_param_without_default_errors() {
     let body = r#"
 schema_version = 1
 
@@ -131,11 +131,11 @@ max = 10
 [params.foo.ui]
 "#;
     let p = write(body);
-    load_schema(&p).expect_err("param without `default` must error (SDS §5.4)");
+    load_schema(&p).expect_err("param without `default` must error");
 }
 
 #[test]
-fn schema_min_greater_than_max_errors_sds_5_4() {
+fn schema_min_greater_than_max_errors() {
     let body = r#"
 schema_version = 1
 
@@ -149,11 +149,11 @@ max = 1
 [params.foo.ui]
 "#;
     let p = write(body);
-    load_schema(&p).expect_err("min > max must error (SDS §5.4)");
+    load_schema(&p).expect_err("min > max must error");
 }
 
 #[test]
-fn schema_enum_without_values_errors_sds_5_4() {
+fn schema_enum_without_values_errors() {
     let body = r#"
 schema_version = 1
 
@@ -165,11 +165,11 @@ default = "classic"
 [params.mode.ui]
 "#;
     let p = write(body);
-    load_schema(&p).expect_err("enum without values[] must error (SDS §5.4)");
+    load_schema(&p).expect_err("enum without values[] must error");
 }
 
 #[test]
-fn schema_vec2_default_with_three_components_errors_sds_5_4() {
+fn schema_vec2_default_with_three_components_errors() {
     // A Vec2 default given as a 3-tuple is a dimensionality mismatch.
     let body = r#"
 schema_version = 1
@@ -182,11 +182,11 @@ default = { x = 1.0, y = 2.0, z = 3.0 }
 [params.offset.ui]
 "#;
     let p = write(body);
-    load_schema(&p).expect_err("vec2 default with 3 components must error (SDS §5.4)");
+    load_schema(&p).expect_err("vec2 default with 3 components must error");
 }
 
 #[test]
-fn schema_indexmap_preserves_insertion_order_sds_5_4() {
+fn schema_indexmap_preserves_insertion_order() {
     let body_ab = r#"
 schema_version = 1
 

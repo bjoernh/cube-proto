@@ -1,12 +1,12 @@
-//! Cross-reference tests that pin SDS §6.1's concrete worked-example JSON
+//! Cross-reference tests that pin's concrete worked-example JSON
 //! literals. These are *verbatim* copies of the blocks that appear in
-//! `Cube 2.0 — System Design Specification-v4.md §6.1` (line numbers below).
+//! `Cube 2.0 — System Design Specification-v4.md.1` (line numbers below).
 //!
 //! Each literal here is re-built with `serde_json::json!` and asserted to
 //! deserialize cleanly into the corresponding `cube_proto` type — guaranteeing
-//! the wire shape never drifts from the SDS.
+//! the wire shape never drifts from the spec.
 //!
-//! NOTE: This file is included from `tests/sds.rs` (so it runs as part of
+//! NOTE: This file is included from `tests/spec.rs` (so it runs as part of
 //! the cube-proto test binary set).
 
 use serde_json::{Value, json};
@@ -22,8 +22,7 @@ fn must_decode_event(j: Value, what: &str) -> Event {
 }
 
 #[test]
-fn sds_6_1_buffer_register_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~723–727:
+fn buffer_register_literal_decodes() {
     //   {"id":10, "cmd":"buffer.register", "buffer_id":0,
     //    "format":"RGB565", "width":384, "height":64, "stride":768,
     //    "size":49152}
@@ -37,17 +36,16 @@ fn sds_6_1_buffer_register_literal_decodes_sds_6_1() {
         "stride": 768,
         "size": 49152
     });
-    must_decode_request(j, "SDS §6.1 buffer.register literal");
+    must_decode_request(j, " buffer.register literal");
 }
 
 #[test]
-fn sds_6_1_present_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~742–745:
+fn present_literal_decodes() {
     //   {"id":11, "cmd":"present", "seq":100, "buffer_id":0,
     //    "damage":[0,0,384,64]}
     //
-    // NOTE: SDS shows `damage` as a 4-element array `[x,y,w,h]`. The test
-    // plan from Wave 1 specifies `Damage { x, y, w, h }` as a struct. Both
+    // NOTE: spec shows `damage` as a 4-element array `[x,y,w,h]`. The test
+    // plan from specifies `Damage { x, y, w, h }` as a struct. Both
     // shapes are testable; we pin the structured form here as the canonical
     // representation that round-trips through `Damage`. The implementation
     // agent may choose to additionally accept the array form via a custom
@@ -59,31 +57,28 @@ fn sds_6_1_present_literal_decodes_sds_6_1() {
         "buffer_id": 0,
         "damage": {"x": 0, "y": 0, "w": 384, "h": 64}
     });
-    must_decode_request(j, "SDS §6.1 present literal (structured damage)");
+    must_decode_request(j, " present literal (structured damage)");
 }
 
 #[test]
-fn sds_6_1_present_displayed_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~751: present.displayed event
+fn present_displayed_literal_decodes() {
     let j = json!({"event": "present.displayed", "seq": 100, "buffer_id": 0});
-    must_decode_event(j, "SDS §6.1 present.displayed literal");
+    must_decode_event(j, " present.displayed literal");
 }
 
 #[test]
-fn sds_6_1_buffer_release_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~752: buffer.release event
+fn buffer_release_literal_decodes() {
     let j = json!({
         "event": "buffer.release",
         "buffer_id": 0,
         "seq": 100,
         "reason": "displayed"
     });
-    must_decode_event(j, "SDS §6.1 buffer.release literal");
+    must_decode_event(j, " buffer.release literal");
 }
 
 #[test]
-fn sds_6_1_input_event_key_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~757–758
+fn input_event_key_literal_decodes() {
     let j = json!({
         "event": "input.event",
         "input_seq": 120,
@@ -92,12 +87,11 @@ fn sds_6_1_input_event_key_literal_decodes_sds_6_1() {
         "code": "BTN_A",
         "value": 1
     });
-    must_decode_event(j, "SDS §6.1 input.event (key) literal");
+    must_decode_event(j, " input.event (key) literal");
 }
 
 #[test]
-fn sds_6_1_input_event_abs_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~760–761
+fn input_event_abs_literal_decodes() {
     let j = json!({
         "event": "input.event",
         "input_seq": 121,
@@ -106,12 +100,11 @@ fn sds_6_1_input_event_abs_literal_decodes_sds_6_1() {
         "code": "ABS_X",
         "value": 17234
     });
-    must_decode_event(j, "SDS §6.1 input.event (abs) literal");
+    must_decode_event(j, " input.event (abs) literal");
 }
 
 #[test]
-fn sds_6_1_input_snapshot_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~763–765
+fn input_snapshot_literal_decodes() {
     let j = json!({
         "event": "input.snapshot",
         "input_seq": 140,
@@ -119,23 +112,21 @@ fn sds_6_1_input_snapshot_literal_decodes_sds_6_1() {
         "keys": {"BTN_A": 0, "BTN_B": 0, "BTN_START": 0},
         "abs":  {"ABS_X": 16384, "ABS_Y": 16384}
     });
-    must_decode_event(j, "SDS §6.1 input.snapshot literal");
+    must_decode_event(j, " input.snapshot literal");
 }
 
 #[test]
-fn sds_6_1_input_device_state_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~767–768
+fn input_device_state_literal_decodes() {
     let j = json!({
         "event": "input.device_state",
         "device": "8BitDo SN30 Pro",
         "connected": true
     });
-    must_decode_event(j, "SDS §6.1 input.device_state literal");
+    must_decode_event(j, " input.device_state literal");
 }
 
 #[test]
-fn sds_6_1_input_dropped_literal_decodes_sds_6_1() {
-    // SDS §6.1 line ~770
+fn input_dropped_literal_decodes() {
     let j = json!({"event": "input.dropped", "since_seq": 120});
-    must_decode_event(j, "SDS §6.1 input.dropped literal");
+    must_decode_event(j, " input.dropped literal");
 }

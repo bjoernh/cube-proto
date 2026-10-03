@@ -1,5 +1,4 @@
-//! Golden wire fixtures for the compositor surface (plan R4.3, SDS v7 §5.13,
-//! §6.1). This target is the **cross-SDK contract artifact**: it writes one
+//! Golden wire fixtures for the compositor surface. This target is the **cross-SDK contract artifact**: it writes one
 //! canonical JSON file per request/response/event the compositor adds to the
 //! wire into `tests/fixtures/wire/*.json`, then reads every file back and proves
 //! it round-trips through the typed `cube_proto` model byte-for-byte. libcube
@@ -18,7 +17,9 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
-use cube_proto::{Capabilities, Event, HelloResult, Request, Response, TransitionKind, TransitionSpec};
+use cube_proto::{
+    Capabilities, Event, HelloResult, Request, Response, TransitionKind, TransitionSpec,
+};
 
 /// Which typed model a fixture decodes through.
 #[derive(Clone, Copy)]
@@ -38,7 +39,7 @@ struct Fixture {
 }
 
 /// The canonical wire shapes for every request/response/event the compositor
-/// surface touches (plan R4.3 enumerates the set). Ordered request → response →
+/// surface touches. Ordered request → response →
 /// event for readability.
 fn fixtures() -> Vec<Fixture> {
     vec![
@@ -150,7 +151,7 @@ fn fixtures() -> Vec<Fixture> {
 /// typed model normalizes to a forward-compat catch-all. The file on disk holds
 /// the *foreign* token a newer daemon actually emits; the consuming SDKs
 /// (libcube R5, cubekit R6) mirror this file verbatim and must likewise decode
-/// it to their own `Unknown`. See issue LEDCube/cube#33.
+/// it to their own `Unknown`.
 struct DecodeFixture {
     /// File stem under `tests/fixtures/wire/` (no extension).
     name: &'static str,
@@ -286,7 +287,11 @@ fn assert_normalizes(f: &DecodeFixture, on_wire: &Value) {
             serde_json::to_value(&v).unwrap()
         }
     };
-    assert_eq!(back, f.normalized, "{}: did not normalize as expected", f.name);
+    assert_eq!(
+        back, f.normalized,
+        "{}: did not normalize as expected",
+        f.name
+    );
 }
 
 /// Prove every committed forward-compat fixture (a foreign/unknown wire token)
@@ -331,7 +336,7 @@ fn wire_forward_compat_fixtures_write_and_roundtrip() {
     }
 }
 
-/// Lenient transition-kind decode (plan R4.2b, D8): an unknown `kind` token
+/// Lenient transition-kind decode: an unknown `kind` token
 /// does NOT hard-fail the enclosing `focus`/`launch` request — it decodes to
 /// `cut`. The strict [`cube_proto::TransitionKind::from_wire`] is the daemon's
 /// hook to detect the fallback and warn. Proves `deny_unknown_fields` on the
@@ -347,7 +352,10 @@ fn unknown_transition_kind_falls_back_to_cut() {
     }))
     .expect("unknown kind must NOT fail the whole request");
     match req {
-        Request::Focus { transition: Some(spec), .. } => {
+        Request::Focus {
+            transition: Some(spec),
+            ..
+        } => {
             assert_eq!(spec.kind, TransitionKind::Cut, "unknown kind → cut");
             assert_eq!(spec.duration_ms, Some(200), "other fields survive");
         }
@@ -368,7 +376,13 @@ fn unknown_transition_kind_falls_back_to_cut() {
     .expect("known kind decodes");
     assert!(matches!(
         ok,
-        Request::Focus { transition: Some(TransitionSpec { kind: TransitionKind::Dissolve, .. }), .. }
+        Request::Focus {
+            transition: Some(TransitionSpec {
+                kind: TransitionKind::Dissolve,
+                ..
+            }),
+            ..
+        }
     ));
 
     // An unknown *field* on the spec is still rejected (deny_unknown_fields is
@@ -382,7 +396,7 @@ fn unknown_transition_kind_falls_back_to_cut() {
 
 /// The `hello` capability body decodes into the strongly-typed
 /// [`Capabilities`], and it advertises exactly the six kinds `cubed` supports
-/// plus the overlay surface (plan R4.2a). This pins the capability contract the
+/// plus the overlay surface. This pins the capability contract the
 /// SDKs read back.
 #[test]
 fn hello_capabilities_decode_typed() {

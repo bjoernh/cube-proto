@@ -52,7 +52,7 @@ pub enum ControllerProfile {
 /// slot persistence and tier-2 bindings) and is omitted for pads with no VID:PID
 /// (some BT pads). `hw_id` is the stable per-device id (the BT HW address /
 /// evdev `uniq`, falling back to `ID_PATH`/`phys`) that distinguishes two pads
-/// of the same model (LEDCube/cube#28).
+/// of the same model.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ControllerInfo {
     /// Slot index the pad is seated in.
@@ -62,7 +62,7 @@ pub struct ControllerInfo {
     /// Lower-case `"vvvv:pppp"` USB identity; omitted for pads with no VID:PID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vid_pid: Option<String>,
-    /// Stable per-device id (LEDCube/cube#28): the evdev `uniq` / udev `UNIQ`
+    /// Stable per-device id: the evdev `uniq` / udev `UNIQ`
     /// (for Bluetooth pads the hardware address, e.g. `"E4:17:D8:25:FB:42"`),
     /// falling back to `ID_PATH`/`phys` for wired pads. Unlike `vid_pid`, this
     /// differs between two controllers of the *same* model, letting a client map

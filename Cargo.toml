@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cube-proto",
+    "crates/cube-config",
+    "crates/cube-presets",
+    "crates/cube-admin-client",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+authors = ["Bjoern Hauffe"]
+repository = "https://github.com/bjoernh/cube-proto"
+homepage = "https://github.com/bjoernh/cube-proto"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+match_wildcard_for_single_variants = "allow"
+needless_pass_by_value = "allow"
+items_after_statements = "allow"
+similar_names = "allow"

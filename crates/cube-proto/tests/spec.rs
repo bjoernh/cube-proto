@@ -2,8 +2,8 @@
 //!
 //! Cargo treats every `tests/*.rs` as a separate integration test binary but
 //! does NOT auto-include nested files. We `#[path]`-include each spec file
-//! here so the wave-1 SDS cross-references run as part of `cargo test
+//! here so the spec cross-references run as part of `cargo test
 //! -p cube-proto`.
 
-#[path = "spec/sds_6_1_wire_envelopes.rs"]
-mod sds_6_1_wire_envelopes;
+#[path = "spec/wire_envelopes.rs"]
+mod wire_envelopes;

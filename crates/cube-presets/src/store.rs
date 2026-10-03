@@ -1,4 +1,4 @@
-//! `PresetStore` — the main entry point for preset I/O (SDS §5.5, §5.6).
+//! `PresetStore` — the main entry point for preset I/O.
 
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
@@ -30,7 +30,7 @@ use crate::validate::validate_name;
 /// ```
 ///
 /// Name resolution precedence (list/export/load) is **user > community >
-/// built-in**, extending SDS §5.5's user-shadows-builtin rule. The community
+/// built-in**, extending's user-shadows-builtin rule. The community
 /// directory exists so an app-store import can never overwrite a preset the
 /// user saved themselves, and so listings can group "own" vs "community" from
 /// data rather than from naming conventions. Tombstones hide built-ins only —
@@ -44,7 +44,11 @@ pub struct PresetStore<F: FsOps> {
 impl<F: FsOps> PresetStore<F> {
     /// Create a new `PresetStore`.
     pub fn new(system_root: PathBuf, user_root: PathBuf, fs: F) -> Self {
-        Self { system_root, user_root, fs }
+        Self {
+            system_root,
+            user_root,
+            fs,
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -53,7 +57,7 @@ impl<F: FsOps> PresetStore<F> {
 
     /// List all visible presets for `app`.
     ///
-    /// Rules (SDS §5.5 + App-Store M6):
+    /// Rules:
     /// - User `.toml` files shadow same-named community presets and built-ins;
     ///   community presets shadow built-ins (user > community > built-in).
     /// - `<name>.deleted` tombstones hide the built-in from the listing
@@ -79,7 +83,7 @@ impl<F: FsOps> PresetStore<F> {
             }
         }
 
-        // Collect user .toml files and tombstones.
+        // Collect user.toml files and tombstones.
         let mut user_files: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut tombstones: std::collections::HashSet<String> = std::collections::HashSet::new();
         if user_dir.is_dir() {
@@ -91,11 +95,11 @@ impl<F: FsOps> PresetStore<F> {
                 } else if let Some(name) = fname.strip_suffix(".deleted") {
                     tombstones.insert(name.to_owned());
                 }
-                // All other extensions (e.g. .tmp., ~, .swp) are ignored.
+                // All other extensions (e.g..tmp., ~,.swp) are ignored.
             }
         }
 
-        // Collect community .toml files (App-Store M6).
+        // Collect community.toml files (App-Store M6).
         let mut community_files: std::collections::HashSet<String> =
             std::collections::HashSet::new();
         if community_dir.is_dir() {
@@ -143,7 +147,7 @@ impl<F: FsOps> PresetStore<F> {
 
     /// Read and parse a single preset.
     ///
-    /// Resolution precedence: user > community > built-in (SDS §5.5 +
+    /// Resolution precedence: user > community > built-in (
     /// App-Store M6). Tombstones hide built-ins only.
     pub fn export(&self, app: &str, name: &str) -> Result<PresetFile, PresetError> {
         validate_name(app)?;
@@ -152,8 +156,11 @@ impl<F: FsOps> PresetStore<F> {
         let presets_dir = self.user_root.join(app).join("presets");
         let user_path = presets_dir.join(format!("{name}.toml"));
         let community_path = presets_dir.join("community").join(format!("{name}.toml"));
-        let system_path =
-            self.system_root.join(app).join("presets").join(format!("{name}.toml"));
+        let system_path = self
+            .system_root
+            .join(app)
+            .join("presets")
+            .join(format!("{name}.toml"));
         let tombstone = presets_dir.join(format!("{name}.deleted"));
 
         let path = if user_path.exists() {
@@ -182,7 +189,7 @@ impl<F: FsOps> PresetStore<F> {
 
     /// Save a preset to the user directory.
     ///
-    /// Steps (SDS §5.6):
+    /// Steps:
     /// 1. Validate name.
     /// 2. Acquire per-app `flock(LOCK_EX)` on `<user_root>/<app>/.lock`.
     /// 3. Write to temp file.
@@ -219,7 +226,7 @@ impl<F: FsOps> PresetStore<F> {
             .map_err(|e| PresetError::BadRequest(format!("failed to serialize preset: {e}")))?
             .into_bytes();
 
-        // write-temp-rename + fsync ordering (SDS §5.6).
+        // write-temp-rename + fsync ordering.
         let tmp_path = self.fs.write_temp(&target, &toml_bytes)?;
         self.fs.fsync_file(&tmp_path)?;
         self.fs.rename(&tmp_path, &target)?;
@@ -242,7 +249,7 @@ impl<F: FsOps> PresetStore<F> {
     /// - Validates name before any filesystem operation.
     /// - Checks `meta.schema_version` against `schema.schema_version` → `EVERSION`.
     /// - Checks `meta.app` matches `app` → `ENOAPP` (via `AppMismatch`).
-    /// - Applies import warnings (SDS §5.5): drops unknown keys, drops readonly
+    /// - Applies import warnings: drops unknown keys, drops readonly
     ///   keys, drops non-shareable keys, clamps out-of-range numeric values.
     /// - Writes the validated preset using the same write-temp-rename + fsync
     ///   ordering as `save`.
@@ -269,16 +276,15 @@ impl<F: FsOps> PresetStore<F> {
         validate_name(name)?;
 
         // Parse.
-        let pf: PresetFile = toml::from_str(toml_str).map_err(|e| {
-            PresetError::BadRequest(format!("failed to parse preset TOML: {e}"))
-        })?;
+        let pf: PresetFile = toml::from_str(toml_str)
+            .map_err(|e| PresetError::BadRequest(format!("failed to parse preset TOML: {e}")))?;
 
         // app mismatch.
         if pf.meta.app != app {
             return Err(PresetError::AppMismatch);
         }
 
-        // schema_version mismatch (SDS §5.5).
+        // schema_version mismatch.
         if pf.meta.schema_version != schema.schema_version {
             return Err(PresetError::SchemaVersionMismatch {
                 expected: schema.schema_version,
@@ -355,8 +361,11 @@ impl<F: FsOps> PresetStore<F> {
         let user_path = presets_dir.join(format!("{name}.toml"));
         let community_path = presets_dir.join("community").join(format!("{name}.toml"));
         let tombstone_path = presets_dir.join(format!("{name}.deleted"));
-        let system_path =
-            self.system_root.join(app).join("presets").join(format!("{name}.toml"));
+        let system_path = self
+            .system_root
+            .join(app)
+            .join("presets")
+            .join(format!("{name}.toml"));
 
         let user_exists = user_path.exists();
         let community_exists = community_path.exists();
@@ -419,9 +428,8 @@ fn acquire_lock(user_app_dir: &Path) -> Result<LockGuard, PresetError> {
         .truncate(false)
         .open(&lock_path)?;
 
-    let flock = Flock::lock(file, FlockArg::LockExclusive).map_err(|(_, errno)| {
-        std::io::Error::from_raw_os_error(errno as i32)
-    })?;
+    let flock = Flock::lock(file, FlockArg::LockExclusive)
+        .map_err(|(_, errno)| std::io::Error::from_raw_os_error(errno as i32))?;
 
     Ok(LockGuard { _flock: flock })
 }
@@ -440,7 +448,7 @@ fn validate_params_for_save(
     SaveReport::default()
 }
 
-/// Validate params for import (SDS §5.5 warning rules).
+/// Validate params for import (warning rules).
 ///
 /// Returns `ImportReport` with the cleaned `final_params` or an error if a
 /// type mismatch is detected.
@@ -487,7 +495,10 @@ fn validate_params_for_import(
         final_params.insert(key.clone(), checked_value);
     }
 
-    Ok(ImportReport { warnings, final_params })
+    Ok(ImportReport {
+        warnings,
+        final_params,
+    })
 }
 
 /// Check type compatibility and clamp numeric values to schema range.

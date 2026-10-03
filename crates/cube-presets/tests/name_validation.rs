@@ -1,4 +1,4 @@
-//! Preset / app name validation (SDS §5.5).
+//! Preset / app name validation.
 //!
 //! > Preset names must match `^[a-zA-Z0-9._-]+$` and must not be equal to
 //! > `.` or `..`. Any name containing `/`, control characters, or equal to
@@ -47,7 +47,7 @@ fn preset_file(app: &str, name: &str) -> PresetFile {
 const BAD_NAMES: &[&str] = &[".", "..", "foo/bar", "foo\u{0001}evil", ""];
 
 #[test]
-fn save_rejects_invalid_names_before_fs_touch_sds_5_5() {
+fn save_rejects_invalid_names_before_fs_touch() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, user_root) = common::make_store(tmp.path(), "x");
     let presets_dir = user_root.join("x/presets");
@@ -58,14 +58,20 @@ fn save_rejects_invalid_names_before_fs_touch_sds_5_5() {
         let err = store
             .save("x", bad, &preset_file("x", bad), &schema)
             .expect_err(&format!("save({bad:?}) must be rejected"));
-        assert!(matches!(err, PresetError::BadRequest(_)), "name={bad:?}, err={err:?}");
+        assert!(
+            matches!(err, PresetError::BadRequest(_)),
+            "name={bad:?}, err={err:?}"
+        );
     }
     let after = snapshot(&presets_dir);
-    assert_eq!(before, after, "rejected saves must not touch the user preset dir");
+    assert_eq!(
+        before, after,
+        "rejected saves must not touch the user preset dir"
+    );
 }
 
 #[test]
-fn import_rejects_invalid_names_before_fs_touch_sds_5_5() {
+fn import_rejects_invalid_names_before_fs_touch() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, user_root) = common::make_store(tmp.path(), "x");
     let presets_dir = user_root.join("x/presets");
@@ -77,46 +83,59 @@ fn import_rejects_invalid_names_before_fs_touch_sds_5_5() {
         let err = store
             .import("x", bad, body, &schema, PresetOrigin::User)
             .expect_err(&format!("import({bad:?}) must be rejected"));
-        assert!(matches!(err, PresetError::BadRequest(_)), "name={bad:?}, err={err:?}");
+        assert!(
+            matches!(err, PresetError::BadRequest(_)),
+            "name={bad:?}, err={err:?}"
+        );
     }
     let after = snapshot(&presets_dir);
     assert_eq!(before, after);
 }
 
 #[test]
-fn delete_rejects_invalid_names_before_fs_touch_sds_5_5() {
+fn delete_rejects_invalid_names_before_fs_touch() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, user_root) = common::make_store(tmp.path(), "x");
     let presets_dir = user_root.join("x/presets");
 
     // Pre-populate one valid file so we can detect any accidental tombstone.
-    std::fs::write(presets_dir.join("kept.toml"), include_str!("fixtures/user_c.toml")).unwrap();
+    std::fs::write(
+        presets_dir.join("kept.toml"),
+        include_str!("fixtures/user_c.toml"),
+    )
+    .unwrap();
     let before = snapshot(&presets_dir);
 
     for bad in BAD_NAMES {
         let err = store
             .delete("x", bad)
             .expect_err(&format!("delete({bad:?}) must be rejected"));
-        assert!(matches!(err, PresetError::BadRequest(_)), "name={bad:?}, err={err:?}");
+        assert!(
+            matches!(err, PresetError::BadRequest(_)),
+            "name={bad:?}, err={err:?}"
+        );
     }
     let after = snapshot(&presets_dir);
     assert_eq!(before, after);
 }
 
 #[test]
-fn export_rejects_invalid_names_sds_5_5() {
+fn export_rejects_invalid_names() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, _ur) = common::make_store(tmp.path(), "x");
     for bad in BAD_NAMES {
         let err = store
             .export("x", bad)
             .expect_err(&format!("export({bad:?}) must be rejected"));
-        assert!(matches!(err, PresetError::BadRequest(_)), "name={bad:?}, err={err:?}");
+        assert!(
+            matches!(err, PresetError::BadRequest(_)),
+            "name={bad:?}, err={err:?}"
+        );
     }
 }
 
 #[test]
-fn list_rejects_invalid_app_names_sds_5_5() {
+fn list_rejects_invalid_app_names() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, _ur) = common::make_store(tmp.path(), "x");
     // App-name regex is the same as preset-name regex.
@@ -125,17 +144,27 @@ fn list_rejects_invalid_app_names_sds_5_5() {
         let err = store
             .list(bad)
             .expect_err(&format!("list({bad:?}) must be rejected"));
-        assert!(matches!(err, PresetError::BadRequest(_)), "app={bad:?}, err={err:?}");
+        assert!(
+            matches!(err, PresetError::BadRequest(_)),
+            "app={bad:?}, err={err:?}"
+        );
     }
 }
 
 #[test]
-fn save_accepts_valid_names_sds_5_5() {
+fn save_accepts_valid_names() {
     let tmp = tempfile::tempdir().unwrap();
     let (store, _sr, _ur) = common::make_store(tmp.path(), "x");
     let schema = common::schema_minimal("x", 1);
-    // SDS regex: ^[a-zA-Z0-9._-]+$
-    for good in ["a", "p1", "my-preset", "my_preset", "my.preset", "PRESET_2026-05-17"] {
+    // spec regex: ^[a-zA-Z0-9._-]+$
+    for good in [
+        "a",
+        "p1",
+        "my-preset",
+        "my_preset",
+        "my.preset",
+        "PRESET_2026-05-17",
+    ] {
         store
             .save("x", good, &preset_file("x", good), &schema)
             .unwrap_or_else(|e| panic!("save({good:?}) must succeed: {e}"));

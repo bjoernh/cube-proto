@@ -1,10 +1,10 @@
-//! JSON-Lines control-plane transport for `/run/cube/admin` (SDS §5.3, §6.1).
+//! JSON-Lines control-plane transport for `/run/cube/admin`.
 //! Connects over a Unix STREAM socket, performs the `hello` handshake, and
 //! issues `set` / `preset.load` / `get-all` requests.
 //!
 //! Unlike a naive write-one-read-one client, the admin socket *auto-subscribes*
 //! every connection after hello and interleaves unsolicited [`Event`] lines
-//! with command [`Response`] lines on the same stream (SDS §6.2; mirrored by
+//! with command [`Response`] lines on the same stream (mirrored by
 //! `cubed/src/control_plane/admin.rs`). So this client splits the connection
 //! into a **writer task** (drains serialized requests) and a **reader task**
 //! that demultiplexes each inbound line: responses are matched to the waiting
@@ -39,10 +39,10 @@ const EVENTS_CHANNEL_CAP: usize = 256;
 /// `id` used for the inline `hello` handshake; live request ids start after it.
 const HELLO_ID: u64 = 1;
 
-/// Protocol version sent in `hello` (matches the daemon's major; SDS §6.1).
+/// Protocol version sent in `hello` (matches the daemon's major;).
 pub const CLIENT_PROTOCOL_VERSION: &str = "1.0";
 
-/// Default admin socket path (SDS §5.3 / §7.1).
+/// Default admin socket path.
 pub const DEFAULT_ADMIN_SOCKET: &str = "/run/cube/admin";
 
 /// A point-in-time read of an app's parameters (the result of `get-all`),
@@ -131,10 +131,10 @@ impl ControlClient {
             return Err(ClientError::Handshake(format!("{:?}", resp.body)));
         }
         // Capture the daemon's advertised protocol version from the hello OK
-        // body (SDS v6 §7 / cubekit §3.5). Older daemons reply with a bare
+        // body (cubekit). Older daemons reply with a bare
         // `{ok:true}` (no result) — then it is simply unknown. The companion
         // gateway reads this back via [`ControlClient::daemon_protocol`] to run
-        // its §5.13 version gate.
+        // its version gate.
         let daemon_protocol = match &resp.body {
             ResponseBody::Result { result: Some(val) } => {
                 serde_json::from_value::<HelloResult>(val.clone())
@@ -206,7 +206,7 @@ impl ControlClient {
     }
 
     /// The connected daemon's advertised protocol version (`"<major>.<minor>"`),
-    /// captured from the `hello` OK body (SDS v6 §7). `None` on older daemons
+    /// captured from the `hello` OK body. `None` on older daemons
     /// that reply with a bare `{ok:true}`. The companion gateway gates on this.
     #[must_use]
     pub fn daemon_protocol(&self) -> Option<&str> {
@@ -341,7 +341,7 @@ impl ControlClient {
     /// so it never collides with a `subscribe`/`set` id), injects it into
     /// `value`, sends the line, and awaits the id-matched response — verbatim,
     /// no command transformation. This is the transport under the companion
-    /// gateway's `/rpc` relay (companion-app.md "Command relay"); the daemon's
+    /// gateway's `/rpc` relay; the daemon's
     /// `ok`/`error` shaping is the caller's to map.
     pub async fn request_raw(
         &mut self,

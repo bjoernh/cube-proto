@@ -1,6 +1,6 @@
-//! Persistence call-order contract (SDS §5.6).
+//! Persistence call-order contract.
 //!
-//! SDS §5.6 mandates:
+//! mandates:
 //!
 //! > Explicit user actions (`preset.save`, `preset.import`, `preset.delete`)
 //! > call `fsync` on the file and on the parent directory.
@@ -14,7 +14,7 @@
 //! 4. `fsync(parent_dir)`
 //!
 //! These tests use `RecordingFsOps` to assert the sequence is observed by
-//! `save()` and `delete()`.
+//! `save` and `delete`.
 
 mod common;
 
@@ -39,7 +39,10 @@ fn meta(app: &str, name: &str) -> PresetMeta {
 fn preset_file(app: &str, name: &str) -> PresetFile {
     let mut params: BTreeMap<String, ParamValue> = BTreeMap::new();
     params.insert("speed".to_string(), ParamValue::Int(5));
-    PresetFile { meta: meta(app, name), params }
+    PresetFile {
+        meta: meta(app, name),
+        params,
+    }
 }
 
 /// Find positions of the expected ordered call kinds in the recorded log.
@@ -49,9 +52,10 @@ fn assert_strict_order(calls: &[FsCall], stages: &[&dyn Fn(&FsCall) -> bool], la
     assert_eq!(stages.len(), labels.len());
     let mut last_idx: Option<usize> = None;
     for (stage, label) in stages.iter().zip(labels.iter()) {
-        let position = calls.iter().position(stage).unwrap_or_else(|| {
-            panic!("missing call stage `{label}` in recorded calls: {calls:?}")
-        });
+        let position = calls
+            .iter()
+            .position(stage)
+            .unwrap_or_else(|| panic!("missing call stage `{label}` in recorded calls: {calls:?}"));
         if let Some(prev) = last_idx {
             assert!(
                 position > prev,
@@ -63,7 +67,7 @@ fn assert_strict_order(calls: &[FsCall], stages: &[&dyn Fn(&FsCall) -> bool], la
 }
 
 #[test]
-fn save_fsync_call_order_sds_5_6() {
+fn save_fsync_call_order() {
     let tmp = tempfile::tempdir().unwrap();
     let (system_root, user_root) = common::make_layout(tmp.path(), "x");
     let fs = RecordingFsOps::new(tmp.path());
@@ -87,15 +91,20 @@ fn save_fsync_call_order_sds_5_6() {
             &|c| matches!(c, FsCall::Rename { to, .. } if to == &target),
             &|c| matches!(c, FsCall::FsyncParent(p) if p == &target.parent().unwrap().to_path_buf()),
         ],
-        &["Write(temp)", "FsyncFile(temp)", "Rename(temp -> target)", "FsyncParent(presets/)"],
+        &[
+            "Write(temp)",
+            "FsyncFile(temp)",
+            "Rename(temp -> target)",
+            "FsyncParent(presets/)",
+        ],
     );
 }
 
 #[test]
-fn delete_user_preset_unlink_then_fsync_parent_sds_5_6() {
+fn delete_user_preset_unlink_then_fsync_parent() {
     let tmp = tempfile::tempdir().unwrap();
     let (system_root, user_root) = common::make_layout(tmp.path(), "x");
-    // Place a user preset that delete() will remove.
+    // Place a user preset that delete will remove.
     let target = user_root.join("x/presets/p.toml");
     std::fs::write(&target, include_str!("fixtures/user_c.toml")).unwrap();
 
@@ -118,18 +127,23 @@ fn delete_user_preset_unlink_then_fsync_parent_sds_5_6() {
 }
 
 #[test]
-fn delete_builtin_writes_tombstone_then_fsync_sds_5_6() {
+fn delete_builtin_writes_tombstone_then_fsync() {
     let tmp = tempfile::tempdir().unwrap();
     let (system_root, user_root) = common::make_layout(tmp.path(), "x");
     // Built-in preset only — no user file.
-    std::fs::write(system_root.join("x/presets/a.toml"), include_str!("fixtures/builtin_a.toml"))
-        .unwrap();
+    std::fs::write(
+        system_root.join("x/presets/a.toml"),
+        include_str!("fixtures/builtin_a.toml"),
+    )
+    .unwrap();
 
     let fs = RecordingFsOps::new(tmp.path());
     let calls_handle = fs.calls.clone();
     let store = cube_presets::PresetStore::new(system_root, user_root.clone(), fs);
 
-    store.delete("x", "a").expect("delete (tombstone) must succeed");
+    store
+        .delete("x", "a")
+        .expect("delete (tombstone) must succeed");
 
     let calls = calls_handle.lock().unwrap().clone();
     let tombstone = user_root.join("x/presets/a.deleted");
@@ -141,6 +155,10 @@ fn delete_builtin_writes_tombstone_then_fsync_sds_5_6() {
             &|c| matches!(c, FsCall::FsyncFile(p) if p == &tombstone),
             &|c| matches!(c, FsCall::FsyncParent(p) if p == &tombstone.parent().unwrap().to_path_buf()),
         ],
-        &["CreateTombstone", "FsyncFile(tombstone)", "FsyncParent(presets/)"],
+        &[
+            "CreateTombstone",
+            "FsyncFile(tombstone)",
+            "FsyncParent(presets/)",
+        ],
     );
 }

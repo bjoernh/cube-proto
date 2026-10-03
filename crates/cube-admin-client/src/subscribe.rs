@@ -1,4 +1,4 @@
-//! SDS v6 §5.13 subscription helpers layered on the [`ControlClient`] transport.
+//! subscription helpers layered on the [`ControlClient`] transport.
 //!
 //! The daemon delivers a `subscribe` ack as an id-matched [`Response`] (carrying
 //! a [`cube_proto::SubscribeResult`]) and then streams subsequent [`Event`]
@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 use crate::client::ControlClient;
 use crate::error::ClientError;
 
-/// Builder for a §5.13 `subscribe` request. The `events` selector is required
+/// Builder for a `subscribe` request. The `events` selector is required
 /// (the class/event filter); everything else has a wire default — `app` is
 /// `"*"` (all apps) and the remaining fields are omitted unless set.
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ impl SubscribeOptions {
         self
     }
 
-    /// Request a baseline [`cube_proto::Snapshot`] in the ack (§5.13).
+    /// Request a baseline [`cube_proto::Snapshot`] in the ack.
     #[must_use]
     pub fn snapshot(mut self, snapshot: bool) -> Self {
         self.snapshot = Some(snapshot);
@@ -64,7 +64,7 @@ impl SubscribeOptions {
         self
     }
 
-    /// Bound the subscription to at most `max_events` events (§5.13 "Bounded
+    /// Bound the subscription to at most `max_events` events ( "Bounded
     /// subscriptions"); the daemon ends it with `subscription.ended`.
     #[must_use]
     pub fn max_events(mut self, max_events: u32) -> Self {
@@ -72,7 +72,7 @@ impl SubscribeOptions {
         self
     }
 
-    /// Bound the subscription to a daemon-side `timeout_ms` window (§5.13).
+    /// Bound the subscription to a daemon-side `timeout_ms` window.
     #[must_use]
     pub fn timeout_ms(mut self, timeout_ms: u64) -> Self {
         self.timeout_ms = Some(timeout_ms);
@@ -81,7 +81,7 @@ impl SubscribeOptions {
 }
 
 impl ControlClient {
-    /// Issue a §5.13 `subscribe` and return the [`SubscribeResult`] ack together
+    /// Issue a `subscribe` and return the [`SubscribeResult`] ack together
     /// with the live [`Event`] stream. The ack comes back through the id-matched
     /// response path; subsequent events arrive on the returned receiver (the
     /// connection's single out-of-band event channel — taken here, so a later
@@ -100,7 +100,7 @@ impl ControlClient {
             max_events: opts.max_events,
             timeout_ms: opts.timeout_ms,
         };
-        // request() surfaces a closed/EOF connection as Err rather than hanging.
+        // request surfaces a closed/EOF connection as Err rather than hanging.
         let resp = self.request(id, &req).await?;
         if !resp.ok {
             return Err(ClientError::Protocol(format!(

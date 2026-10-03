@@ -1,5 +1,4 @@
-//! Shared value-string and `--scope` parsing for the admin control surface
-//! (ARCH §8.5).
+//! Shared value-string and `--scope` parsing for the admin control surface.
 //!
 //! These parsers turn CLI/tool argument strings into typed [`cube_proto`]
 //! values. They live here — in the neutral transport crate — rather than in
@@ -22,7 +21,7 @@ pub enum SetType {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Value parsing (ARCH §8.5)
+// Value parsing
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Errors returned by [`parse_param_value`].
@@ -60,7 +59,7 @@ pub fn parse_param_value_auto(raw: &str) -> ParamValue {
     ParamValue::String(raw.to_owned())
 }
 
-/// Parse a CLI value string under a schema-type hint. Implements ARCH §8.5
+/// Parse a CLI value string under a schema-type hint. Implements
 /// argument forms for every `ParamValue` variant.
 pub fn parse_param_value(ty: SetType, raw: &str) -> Result<ParamValue, ValueParseError> {
     match ty {
@@ -115,7 +114,7 @@ fn parse_color_value(raw: &str) -> Result<ParamValue, ValueParseError> {
 }
 
 fn parse_vec2_value(raw: &str) -> Result<ParamValue, ValueParseError> {
-    // Reject any spaces (ARCH §8.5)
+    // Reject any spaces
     if raw.contains(' ') {
         return Err(ValueParseError::Vec(raw.to_owned()));
     }
@@ -162,7 +161,7 @@ pub fn parse_kv(arg: &str) -> Result<(String, String), ValueParseError> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// `--scope` parsing — cube-gamepad Tier 2 (LEDCube/cube#6)
+// `--scope` parsing — cube-gamepad Tier 2
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Errors returned by [`parse_scope`].
@@ -179,7 +178,7 @@ pub enum ScopeParseError {
 /// else is a [`ScopeParseError`].
 ///
 /// This is the shared scope syntax for cube-gamepad "Tier 2" admin verbs
-/// (LEDCube/cube#6) and is reused by `cube-mcp`'s input tools.
+/// and is reused by `cube-mcp`'s input tools.
 pub fn parse_scope(s: &str) -> Result<cube_proto::BindingScope, ScopeParseError> {
     if s == "global" {
         return Ok(cube_proto::BindingScope::Global);

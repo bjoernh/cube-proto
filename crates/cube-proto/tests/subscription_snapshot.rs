@@ -1,6 +1,6 @@
-//! SDS v6 §5.13 — event subscription & telemetry: wire-surface round-trips.
+//! — event subscription & telemetry: wire-surface round-trips.
 //!
-//! Pins the §5.13 protocol surface: the extended `subscribe` request (events /
+//! Pins the event-subscription protocol surface: the extended `subscribe` request (events /
 //! `interval_ms` / snapshot / `max_events` / `timeout_ms`), the reshaped
 //! `unsubscribe` (`sub_id` | all | legacy app), the new `subscriptions`
 //! introspection verb, the new event payloads (`app.state`, `focus.changed`,
@@ -8,12 +8,11 @@
 //! `event_seq` on reliable events, `pause_causes` on `PerAppStatus`, the
 //! `SubscribeResult`/`Snapshot` response model, and the protocol bump to 1.2.
 //!
-//! Shape conventions follow the spec (`cube-event-subscription.md`) with the
-//! code-reality corrections from planning: stop reasons use the daemon's
-//! `wire_reason()` vocabulary, `last_focused` is the monotonic u64 stamp from
+//! Shape conventions: stop reasons use the daemon's
+//! `wire_reason` vocabulary, `last_focused` is the monotonic u64 stamp from
 //! `status`, and session `state` strings are the v6 lifecycle set.
 //!
-//! Naming convention: `<thing>_roundtrips_sds_5_13` per the house test plan;
+//! Naming convention: `<thing>_roundtrips` per the house test plan;
 //! helpers mirror `wire_roundtrip.rs`.
 
 use serde_json::{Value, json};
@@ -42,11 +41,11 @@ fn roundtrip_event(j: &Value) -> Event {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// subscribe — extended request (§5.13 "The commands")
+// subscribe — extended request
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn subscribe_full_form_roundtrips_sds_5_13() {
+fn subscribe_full_form_roundtrips() {
     // The spec's worked example, open-ended form (no bounds).
     let j = json!({
         "id": 17,
@@ -89,7 +88,7 @@ fn subscribe_full_form_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn subscribe_bounded_form_roundtrips_sds_5_13() {
+fn subscribe_bounded_form_roundtrips() {
     // Bounded subscription (the MCP cube_watch mapping).
     let j = json!({
         "id": 18,
@@ -118,7 +117,7 @@ fn subscribe_bounded_form_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn subscribe_legacy_param_form_roundtrips_unchanged_sds_5_13() {
+fn subscribe_legacy_param_form_roundtrips_unchanged() {
     // Back-compat: today's param-watch shape must round-trip byte-identically —
     // none of the new optional fields may appear on the wire when unset.
     let j = json!({
@@ -150,7 +149,7 @@ fn subscribe_legacy_param_form_roundtrips_unchanged_sds_5_13() {
 }
 
 #[test]
-fn subscribe_without_app_defaults_to_star_sds_5_13() {
+fn subscribe_without_app_defaults_to_star() {
     // `app` may be omitted by new clients subscribing to global classes only;
     // it defaults to "*" (parse-only: serialization always carries `app`).
     let j = json!({
@@ -166,11 +165,11 @@ fn subscribe_without_app_defaults_to_star_sds_5_13() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// unsubscribe / subscriptions (§5.13 "The commands")
+// unsubscribe / subscriptions
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn unsubscribe_by_sub_id_roundtrips_sds_5_13() {
+fn unsubscribe_by_sub_id_roundtrips() {
     let j = json!({ "id": 18, "cmd": "unsubscribe", "sub_id": "s-3" });
     let req = roundtrip_request(&j);
     match req {
@@ -190,7 +189,7 @@ fn unsubscribe_by_sub_id_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn unsubscribe_all_roundtrips_sds_5_13() {
+fn unsubscribe_all_roundtrips() {
     let j = json!({ "id": 18, "cmd": "unsubscribe", "all": true });
     let req = roundtrip_request(&j);
     match req {
@@ -206,7 +205,7 @@ fn unsubscribe_all_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn unsubscribe_legacy_app_form_roundtrips_unchanged_sds_5_13() {
+fn unsubscribe_legacy_app_form_roundtrips_unchanged() {
     // Back-compat: the existing `{id, app}` unsubscribe keeps its exact shape.
     let j = json!({ "id": 9, "cmd": "unsubscribe", "app": "snake" });
     let req = roundtrip_request(&j);
@@ -223,18 +222,18 @@ fn unsubscribe_legacy_app_form_roundtrips_unchanged_sds_5_13() {
 }
 
 #[test]
-fn subscriptions_request_roundtrips_sds_5_13() {
+fn subscriptions_request_roundtrips() {
     let j = json!({ "id": 19, "cmd": "subscriptions" });
     let req = roundtrip_request(&j);
     assert!(matches!(req, Request::Subscriptions { id: 19 }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// lifecycle events (§5.13 "Event payloads — lifecycle")
+// lifecycle events
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn app_state_event_with_cause_roundtrips_sds_5_13() {
+fn app_state_event_with_cause_roundtrips() {
     let j = json!({
         "event": "app.state",
         "app": "snake",
@@ -265,7 +264,7 @@ fn app_state_event_with_cause_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn app_state_event_without_cause_omits_field_sds_5_13() {
+fn app_state_event_without_cause_omits_field() {
     // `cause` is present only on focus/blank pause edges; other transitions
     // (e.g. paused → stopping) omit it entirely on the wire.
     let j = json!({
@@ -283,7 +282,7 @@ fn app_state_event_without_cause_omits_field_sds_5_13() {
 }
 
 #[test]
-fn focus_changed_event_roundtrips_sds_5_13() {
+fn focus_changed_event_roundtrips() {
     let j = json!({
         "event": "focus.changed",
         "focused_app": "snake",
@@ -306,7 +305,7 @@ fn focus_changed_event_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn focus_changed_event_omits_absent_apps_sds_5_13() {
+fn focus_changed_event_omits_absent_apps() {
     // First focus after boot has no `previous`; both fields are optional and
     // omitted when absent.
     let j = json!({
@@ -333,7 +332,7 @@ fn focus_changed_event_omits_absent_apps_sds_5_13() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn app_started_v5_shape_unchanged_sds_5_13() {
+fn app_started_v5_shape_unchanged() {
     // The v5 wire shape must survive byte-identically when event_seq is None.
     let j = json!({ "event": "app.started", "app": "snake" });
     let ev = roundtrip_event(&j);
@@ -347,7 +346,7 @@ fn app_started_v5_shape_unchanged_sds_5_13() {
 }
 
 #[test]
-fn app_started_with_event_seq_roundtrips_sds_5_13() {
+fn app_started_with_event_seq_roundtrips() {
     let j = json!({ "event": "app.started", "app": "snake", "event_seq": 5013 });
     let ev = roundtrip_event(&j);
     match ev {
@@ -357,9 +356,9 @@ fn app_started_with_event_seq_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn app_stopped_with_reason_and_event_seq_roundtrips_sds_5_13() {
-    // Reason strings are the daemon's wire_reason() vocabulary; "evicted" is
-    // the LRU-eviction case §5.13 needs to distinguish.
+fn app_stopped_with_reason_and_event_seq_roundtrips() {
+    // Reason strings are the daemon's wire_reason vocabulary; "evicted" is
+    // the LRU-eviction case the protocol needs to distinguish.
     let j = json!({
         "event": "app.stopped",
         "app": "snake",
@@ -382,7 +381,7 @@ fn app_stopped_with_reason_and_event_seq_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn power_state_with_event_seq_roundtrips_sds_5_13() {
+fn power_state_with_event_seq_roundtrips() {
     let j = json!({ "event": "power.state", "state": "blanked", "event_seq": 5017 });
     let ev = roundtrip_event(&j);
     match ev {
@@ -395,7 +394,7 @@ fn power_state_with_event_seq_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn power_state_v5_shape_unchanged_sds_5_13() {
+fn power_state_v5_shape_unchanged() {
     let j = json!({ "event": "power.state", "state": "active" });
     let ev = roundtrip_event(&j);
     match ev {
@@ -405,11 +404,11 @@ fn power_state_v5_shape_unchanged_sds_5_13() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// telemetry / brightness / subscription.ended (§5.13 "Event payloads")
+// telemetry / brightness / subscription.ended
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn app_stats_event_roundtrips_sds_5_13() {
+fn app_stats_event_roundtrips() {
     // fps values are chosen binary-exact so the f32 JSON round-trip is stable.
     let j = json!({
         "event": "app.stats",
@@ -439,7 +438,7 @@ fn app_stats_event_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn brightness_changed_event_roundtrips_sds_5_13() {
+fn brightness_changed_event_roundtrips() {
     // Coalescible class: carries no event_seq, ever.
     let j = json!({ "event": "brightness.changed", "value": 200 });
     let ev = roundtrip_event(&j);
@@ -450,7 +449,7 @@ fn brightness_changed_event_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn subscription_ended_roundtrips_all_reasons_sds_5_13() {
+fn subscription_ended_roundtrips_all_reasons() {
     for (reason_str, reason) in [
         ("max_events", SubscriptionEndReason::MaxEvents),
         ("timeout", SubscriptionEndReason::Timeout),
@@ -473,12 +472,12 @@ fn subscription_ended_roundtrips_all_reasons_sds_5_13() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// pause_causes on PerAppStatus (§5.13 prerequisite 3 — additive)
+// pause_causes on PerAppStatus ( prerequisite 3 — additive)
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn per_app_status_without_pause_causes_still_parses_sds_5_13() {
-    // The pre-§5.13 session shape (no pause_causes) must keep deserializing,
+fn per_app_status_without_pause_causes_still_parses() {
+    // The pre- session shape (no pause_causes) must keep deserializing,
     // and serializing a None must omit the field (old clients ignore nothing).
     let j = json!({
         "pid": 4242,
@@ -510,7 +509,7 @@ fn per_app_status_without_pause_causes_still_parses_sds_5_13() {
 }
 
 #[test]
-fn per_app_status_with_pause_causes_roundtrips_sds_5_13() {
+fn per_app_status_with_pause_causes_roundtrips() {
     let j = json!({
         "pid": 4242,
         "systemd_unit": "cube-app@picture.service",
@@ -544,11 +543,11 @@ fn per_app_status_with_pause_causes_roundtrips_sds_5_13() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SubscribeResult + Snapshot (§5.13 "Snapshot semantics" — normative schema)
+// SubscribeResult + Snapshot ( "Snapshot semantics" — normative schema)
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn subscribe_result_minimal_roundtrips_sds_5_13() {
+fn subscribe_result_minimal_roundtrips() {
     // Without snapshot:true the result carries sub_id + the seq baseline only.
     let j = json!({ "sub_id": "s-3", "event_seq": 5012 });
     let r: SubscribeResult = serde_json::from_value(j.clone()).expect("SubscribeResult decode");
@@ -560,7 +559,7 @@ fn subscribe_result_minimal_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn subscribe_result_with_full_snapshot_roundtrips_sds_5_13() {
+fn subscribe_result_with_full_snapshot_roundtrips() {
     // The spec's normative snapshot schema, with code-reality types:
     // last_focused is the monotonic u64 stamp `status` already reports.
     let j = json!({
@@ -617,7 +616,7 @@ fn subscribe_result_with_full_snapshot_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn snapshot_omits_unsubscribed_sections_sds_5_13() {
+fn snapshot_omits_unsubscribed_sections() {
     // Only subscribed classes appear: a power+brightness-only snapshot has
     // exactly those keys on the wire.
     let snap = Snapshot {
@@ -675,7 +674,7 @@ fn subscribe_result_with_input_bindings_snapshot_roundtrips() {
         .expect("section");
     assert_eq!(bindings.controllers.len(), 2);
     assert_eq!(bindings.controllers[0].player, 0);
-    // Stable per-device id threads through the snapshot section (LEDCube/cube#28).
+    // Stable per-device id threads through the snapshot section.
     assert_eq!(
         bindings.controllers[0].hw_id.as_deref(),
         Some("E4:17:D8:25:FB:42")
@@ -715,8 +714,8 @@ fn subscribe_result_with_input_capture_snapshot_roundtrips() {
 }
 
 #[test]
-fn subscribe_ok_response_with_result_roundtrips_sds_5_13() {
-    // The full response envelope a §5.13 subscriber sees on the wire.
+fn subscribe_ok_response_with_result_roundtrips() {
+    // The full response envelope a subscriber sees on the wire.
     let j = json!({
         "id": 17,
         "ok": true,
@@ -742,7 +741,7 @@ fn subscribe_ok_response_with_result_roundtrips_sds_5_13() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
-fn pause_causes_roundtrips_sds_5_13() {
+fn pause_causes_roundtrips() {
     let j = json!({ "focus_lost": true, "blanked": true });
     let p: PauseCauses = serde_json::from_value(j.clone()).expect("PauseCauses decode");
     assert!(p.focus_lost);
@@ -751,8 +750,8 @@ fn pause_causes_roundtrips_sds_5_13() {
 }
 
 #[test]
-fn protocol_version_bumped_to_1_2_sds_5_13() {
-    // §5.13 "Compatibility and migration": the admin protocol version is
+fn protocol_version_bumped_to_1_2() {
+    // the admin protocol version is
     // bumped so clients (and the companion gateway's hard gate) can
     // feature-detect the subscription surface.
     assert_eq!(cube_proto::PROTOCOL_MAJOR, 1);

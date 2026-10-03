@@ -4,7 +4,13 @@ version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Wire-protocol types (JSON requests/responses/events) and shared error types for cubed and cubectl."
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Wire-protocol types (JSON requests, responses, events) and shared error types for the LED Cube 2.0 control plane."
+readme = "README.md"
+keywords = ["led-cube", "protocol", "serde", "wire-format"]
+categories = ["data-structures", "encoding"]
 
 [lints]
 workspace = true

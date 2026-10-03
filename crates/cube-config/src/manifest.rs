@@ -1,7 +1,7 @@
-//! Loader for `manifest.toml` (SDS §7.2).
+//! Loader for `manifest.toml`.
 //!
 //! Validates the app `name` against the regex `^[a-zA-Z0-9._-]+$` and
-//! additionally rejects the special values `.` and `..` (SDS §5.5).
+//! additionally rejects the special values `.` and `..`.
 
 use std::path::Path;
 
@@ -16,7 +16,7 @@ use crate::system::ConfigError;
 // Category enum
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Closed set of manifest categories (SDS §7.2).
+/// Closed set of manifest categories.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ManifestCategory {
@@ -29,15 +29,15 @@ pub enum ManifestCategory {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Accent palette (SDS v7.1 §A2)
+// Accent palette
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Closed, core-owned canonical accent palette (SDS v7.1 §A2).
+/// Closed, core-owned canonical accent palette.
 ///
 /// These are palette-neutral colour tokens the core owns, deliberately
 /// decoupled from the companion's internal theme naming. The set is closed:
 /// an unknown token fails deserialization so `cubectl doctor` surfaces it
-/// (SDS §11.1). New tokens may be appended without a schema version bump; the
+/// New tokens may be appended without a schema version bump; the
 /// companion degrades any token it does not theme to a fallback accent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -53,14 +53,14 @@ pub enum Accent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Player count (SDS v7.1 §A1/§A4)
+// Player count
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Structured player count for an app (SDS v7.1 §A1).
+/// Structured player count for an app.
 ///
 /// On the wire and in TOML this is an inline table `{ min = N, max = M }`.
 /// The loader validates `min >= 1` and `min <= max`; it is carried structured
-/// all the way to the `list` wire (§A4), never a pre-formatted display string.
+/// all the way to the `list` wire, never a pre-formatted display string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Players {
     pub min: u32,
@@ -88,21 +88,21 @@ pub struct AppSection {
     pub version: Version,
     pub category: ManifestCategory,
     pub icon: Option<String>,
-    /// Optional accent token from the closed core palette (SDS v7.1 §A1/§A2).
+    /// Optional accent token from the closed core palette.
     pub accent: Option<Accent>,
-    /// Optional short blurb (companion Arcade sub-line) (SDS v7.1 §A1).
+    /// Optional short blurb (companion Arcade sub-line).
     pub description: Option<String>,
     /// Optional preview image/gif filename, resolved flat in the app's install
-    /// directory alongside `manifest.toml` (SDS v7.1 §A1/§A3).
+    /// directory alongside `manifest.toml`.
     pub preview: Option<String>,
     /// Optional structured player count; validated `min >= 1, min <= max`
-    /// (SDS v7.1 §A1). Omitted for non-player apps (visualizers/utilities).
+    /// Omitted for non-player apps (visualizers/utilities).
     pub players: Option<Players>,
 }
 
 /// `[requires]` section of a `manifest.toml`.
 ///
-/// SDS v6 §7.2: `libcube`, `cubekit` and `cubego` are alternative
+///: `libcube`, `cubekit` and `cubego` are alternative
 /// SDK-compatibility fields — an app declares **exactly one**, matching the
 /// SDK it links (C++, Rust and Go respectively). This is enforced by
 /// [`load_manifest`] only when a `[requires]` table is present at all; a
@@ -111,33 +111,33 @@ pub struct AppSection {
 pub struct RequiresSection {
     pub libcube: Option<VersionReq>,
     pub cubekit: Option<VersionReq>,
-    /// Go SDK compatibility requirement (cube-system#7).
+    /// Go SDK compatibility requirement.
     pub cubego: Option<VersionReq>,
     pub inputs: Vec<String>,
     pub sensors: Vec<String>,
     /// `true` if the app declares a need for outbound network access
-    /// (SDS v6 §5.2, §7.2). Defaults to `false`.
+    /// Defaults to `false`.
     pub network: bool,
 }
 
-/// `[power]` section of a `manifest.toml` (SDS v6 §7.2).
+/// `[power]` section of a `manifest.toml`.
 ///
 /// Optional; a missing `[power]` table is equivalent to
 /// `idle_blank = false`.
 #[derive(Debug, Clone)]
 pub struct PowerSection {
     /// When `true`, the system idle-blank timer also runs while this app is
-    /// focused (SDS v6 §5.12).
+    /// focused.
     pub idle_blank: bool,
 }
 
-/// `[overlay]` section of a `manifest.toml` (SDS v7 §5.13, §6.1).
+/// `[overlay]` section of a `manifest.toml`.
 ///
 /// Optional; a missing `[overlay]` table is equivalent to `provides = false`.
 #[derive(Debug, Clone)]
 pub struct OverlaySection {
     /// When `true`, this app may `overlay.acquire` a client overlay over
-    /// **itself** (SDS v7 §5.13). Defaults to `false`.
+    /// **itself**. Defaults to `false`.
     pub provides: bool,
 }
 
@@ -161,17 +161,17 @@ struct RawApp {
     category: ManifestCategory,
     #[serde(default)]
     icon: Option<String>,
-    /// SDS v7.1 §A1/§A2: optional; unknown token fails deserialization (closed
+    ///: optional; unknown token fails deserialization (closed
     /// set), surfaced as a `ConfigError::Parse` by the loader.
     #[serde(default)]
     accent: Option<Accent>,
-    /// SDS v7.1 §A1: optional short blurb.
+    ///: optional short blurb.
     #[serde(default)]
     description: Option<String>,
-    /// SDS v7.1 §A1/§A3: optional preview filename.
+    ///: optional preview filename.
     #[serde(default)]
     preview: Option<String>,
-    /// SDS v7.1 §A1: optional inline `{ min, max }`; validated by the loader.
+    ///: optional inline `{ min, max }`; validated by the loader.
     #[serde(default)]
     players: Option<Players>,
 }
@@ -188,14 +188,14 @@ struct RawRequires {
     inputs: Vec<String>,
     #[serde(default)]
     sensors: Vec<String>,
-    /// SDS v6 §7.2: optional, default `false`.
+    ///: optional, default `false`.
     #[serde(default)]
     network: bool,
 }
 
 #[derive(Deserialize)]
 struct RawPower {
-    /// SDS v6 §7.2: optional, default `false`.
+    ///: optional, default `false`.
     #[serde(default)]
     idle_blank: bool,
 }
@@ -203,9 +203,9 @@ struct RawPower {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawOverlay {
-    /// SDS v7 §5.13: optional, default `false`. A non-bool value (e.g.
+    ///: optional, default `false`. A non-bool value (e.g.
     /// `provides = "yes"`) is rejected by the loader (the bug `cubectl doctor`
-    /// must surface — SDS §11.1), as is any unknown key under `[overlay]`.
+    /// must surface —), as is any unknown key under `[overlay]`.
     #[serde(default)]
     provides: bool,
 }
@@ -227,7 +227,7 @@ where
 // Name validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Validate an app name per SDS §5.5.
+/// Validate an app name.
 ///
 /// Returns `Err` with a descriptive message if the name is invalid.
 pub(crate) fn validate_app_name(name: &str) -> Result<(), String> {
@@ -239,7 +239,7 @@ pub(crate) fn validate_app_name(name: &str) -> Result<(), String> {
             "invalid app name {name:?}: name must not be '.' or '..'"
         ));
     }
-    // SDS §5.5 / same regex reused for preset names.
+    // / same regex reused for preset names.
     let re = Regex::new(r"^[a-zA-Z0-9._-]+$").expect("valid regex");
     if !re.is_match(name) {
         return Err(format!(
@@ -250,21 +250,21 @@ pub(crate) fn validate_app_name(name: &str) -> Result<(), String> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Emission (the "agree by construction" counterpart of the loader; SDS §7.2,
-// cubekit-spec §9.4)
+// Emission (the "agree by construction" counterpart of the loader;,
+// cubekit-spec)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Serialize a [`Manifest`] to `manifest.toml` text (SDS §7.2, §7.1 §A1).
+/// Serialize a [`Manifest`] to `manifest.toml` text.
 ///
 /// The output is deterministic and key-sorted (each table's values are sorted
 /// by key) and is accepted and round-tripped by [`load_manifest`]. This is the
-/// emission half of "agree by construction" (cubekit-spec §9.4): the same crate
+/// emission half of "agree by construction" (cubekit-spec): the same crate
 /// that loads `manifest.toml` also emits it, so emitter and loader cannot drift.
-/// `Option` fields (`icon`, the four §A1 metadata fields `accent`/`description`/
+/// `Option` fields (`icon`, the four metadata fields `accent`/`description`/
 /// `preview`/`players`, `requires`, `power`, and the SDK-compat
 /// `libcube`/`cubekit`/
 /// `cubego` fields) are omitted entirely when `None`. `players` is emitted as
-/// an inline table `{ min = N, max = M }` (SDS v7.1 §A1).
+/// an inline table `{ min = N, max = M }`.
 #[must_use]
 pub fn manifest_to_toml(m: &Manifest) -> String {
     let mut doc = DocumentMut::new();
@@ -279,7 +279,7 @@ pub fn manifest_to_toml(m: &Manifest) -> String {
     if let Some(icon) = &m.app.icon {
         app.insert("icon", value(icon.clone()));
     }
-    // §A1 metadata fields — emitted only when `Some`.
+    // metadata fields — emitted only when `Some`.
     if let Some(accent) = &m.app.accent {
         app.insert("accent", value(lowercase_token(*accent)));
     }
@@ -387,7 +387,7 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
         ))
     })?;
 
-    // SDS v7.1 §A1: validate `players` when present (min >= 1, min <= max).
+    //: validate `players` when present (min >= 1, min <= max).
     // (An invalid `accent` token is already rejected earlier by the closed
     // enum during `toml::from_str`, surfaced as `ConfigError::Parse`.)
     if let Some(players) = raw.app.players {
@@ -420,7 +420,7 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
     let requires = raw
         .requires
         .map(|r| {
-            // SDS v6 §7.2: `libcube`, `cubekit` and `cubego` are alternative
+            //: `libcube`, `cubekit` and `cubego` are alternative
             // SDK-compatibility fields — exactly one must be declared when
             // `[requires]` is present at all.
             let declared = usize::from(r.libcube.is_some())

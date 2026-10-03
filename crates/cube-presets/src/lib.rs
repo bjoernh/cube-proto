@@ -1,7 +1,7 @@
 //! Preset TOML I/O for cubed.
 //!
-//! See SDS §5.5 (preset semantics, import warnings, `schema_version`) and
-//! §5.6 (persistence: flock, write-temp-rename, fsync ordering).
+//! (preset semantics, import warnings, `schema_version`) and
+//! (persistence: flock, write-temp-rename, fsync ordering).
 
 mod fs_ops;
 mod store;

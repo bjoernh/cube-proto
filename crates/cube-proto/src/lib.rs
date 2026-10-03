@@ -1,6 +1,6 @@
 //! Wire-protocol types for the cubed control plane.
 //!
-//! See the SDS §6.1 and ARCH §8 for the normative definitions.
+//! See the for the normative definitions.
 //!
 //! This crate intentionally has no I/O surface — only types and their
 //! serde implementations. Transport (Unix `SOCK_SEQPACKET`, framing,
@@ -26,7 +26,7 @@ pub use event::{
     ChangeSource, Event, FocusLostReason, OverlayDismissReason, PowerState, PresentDroppedReason,
     ReleaseReason, SubscriptionEndReason,
 };
-pub use handshake_datagram::{HandshakeDatagram, HandshakeError, HANDSHAKE_BYTES, HANDSHAKE_MAGIC};
+pub use handshake_datagram::{HANDSHAKE_BYTES, HANDSHAKE_MAGIC, HandshakeDatagram, HandshakeError};
 pub use input::{BindingScope, ControllerInfo, ControllerProfile};
 pub use request::{
     Capabilities, HelloResult, OverlayInputMode, Request, TransitionKind, TransitionSpec,
@@ -42,22 +42,22 @@ pub use subscription::{
 };
 pub use value::{Color, Damage, Format, ParamValue, Vec2, Vec3};
 
-/// Maximum permitted wire-message size (SDS §5.3 / §6.1).
+/// Maximum permitted wire-message size.
 pub const MAX_MESSAGE_BYTES: usize = 65_536;
 
-/// Control-protocol major version (SDS §5.3 `hello`/`EVERSION` gate).
+/// Control-protocol major version (`hello`/`EVERSION` gate).
 ///
 /// `EVERSION` rejects a `hello` whose major component differs from this
-/// value. v6 is a **minor** bump within major 1 (delta §7): v5/`libcube`
+/// value. v6 is a **minor** bump within major 1: v5/`libcube`
 /// clients sending `hello {protocol_version: "1.0"}` (or any `"1.x"`)
 /// remain compatible and need no changes.
 pub const PROTOCOL_MAJOR: u32 = 1;
 
-/// Control-protocol minor version for the v6 surface (SDS v6; delta §4–§7).
+/// Control-protocol minor version for the v6 surface.
 ///
 /// Minor `1` marked the addition of `focus.lost`, `focus.gained`,
 /// `power.blank`, `power.wake`, and the residency model. Minor `2` marks the
-/// SDS v6 §5.13 event-subscription surface (the extended `subscribe`/
+/// event-subscription surface (the extended `subscribe`/
 /// `unsubscribe`, the `subscriptions` verb, the new event payloads, and the
 /// `SubscribeResult`/`Snapshot` response model). A client (e.g. `cubekit` or
 /// the companion gateway's hard gate) detects the surface by reading `cubed`'s
@@ -67,11 +67,11 @@ pub const PROTOCOL_MINOR: u32 = 2;
 
 /// Full protocol version string advertised by `cubed` in the `hello` OK
 /// response (`"<major>.<minor>"`). Not to be confused with the app/manifest
-/// `version` field (SDS §7.2, semver `"2.0.0"` in the worked example) — that
+/// `version` field (semver `"2.0.0"` in the worked example) — that
 /// is an unrelated per-app version, not the control-protocol version.
 pub const PROTOCOL_VERSION: &str = "1.2";
 
-/// Expected payload size for a single remote frame (SDS §6.2).
+/// Expected payload size for a single remote frame.
 pub const REMOTE_FRAME_PAYLOAD_BYTES: usize = 49_152;
 
 /// Errors returned by this crate's utility helpers.

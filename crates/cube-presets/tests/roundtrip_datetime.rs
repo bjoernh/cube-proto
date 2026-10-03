@@ -47,10 +47,7 @@ version = "1.0"
 "#;
 
     let pf: PresetFile = toml::from_str(toml_str).unwrap();
-    assert_eq!(
-        pf.meta.created.to_rfc3339(),
-        "2026-05-17T00:00:00+00:00"
-    );
+    assert_eq!(pf.meta.created.to_rfc3339(), "2026-05-17T00:00:00+00:00");
 }
 
 /// Deserialize a TOML string with a native datetime (new format).
@@ -68,10 +65,7 @@ version = "1.0"
 "#;
 
     let pf: PresetFile = toml::from_str(toml_str).unwrap();
-    assert_eq!(
-        pf.meta.created.to_rfc3339(),
-        "2026-05-17T00:00:00+00:00"
-    );
+    assert_eq!(pf.meta.created.to_rfc3339(), "2026-05-17T00:00:00+00:00");
 }
 
 /// Full round-trip: serialize then deserialize preserves the timestamp.

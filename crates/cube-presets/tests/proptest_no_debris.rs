@@ -1,10 +1,10 @@
-//! Property-based test (SDS §5.6): no fs debris under arbitrary operations.
+//! Property-based test: no fs debris under arbitrary operations.
 //!
 //! Generates random sequences of (save, delete, list) and asserts:
 //!
 //! 1. No `.tmp.*` files remain in the user preset dir.
 //! 2. Every remaining file matches `*.toml` or `*.deleted` (the only two
-//!    artifact kinds defined in §5.5 / §7.1).
+//!    artifact kinds defined in /).
 //! 3. No save / delete / list call panics — schema validation and name
 //!    validation are the only error paths.
 
@@ -75,11 +75,13 @@ fn dir_debris_check(dir: &Path) {
         let name = entry.file_name().to_string_lossy().into_owned();
         assert!(
             !name.starts_with(".tmp."),
-            "found temp debris {name} in {}", dir.display(),
+            "found temp debris {name} in {}",
+            dir.display(),
         );
         assert!(
             name.ends_with(".toml") || name.ends_with(".deleted"),
-            "found unexpected artifact {name} in {}", dir.display(),
+            "found unexpected artifact {name} in {}",
+            dir.display(),
         );
     }
 }
@@ -91,7 +93,7 @@ proptest! {
     })]
 
     #[test]
-    fn random_ops_leave_no_debris_sds_5_6(
+    fn random_ops_leave_no_debris(
         ops in proptest::collection::vec(op_strategy(), 1..32),
     ) {
         let tmp = tempfile::tempdir().unwrap();

@@ -4,13 +4,19 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "TOML loaders for /etc/cube/system.toml, manifest.toml, and schema.toml."
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "TOML loaders and schema types for LED Cube 2.0 system.toml, app manifest.toml and param schema.toml."
+readme = "README.md"
+keywords = ["led-cube", "config", "toml"]
+categories = ["config", "parser-implementations"]
 
 [lints]
 workspace = true
 
 [dependencies]
-cube-proto = { path = "../cube-proto" }
+cube-proto = { path = "../cube-proto", version = "0.2.0" }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 toml_edit = "0.22"

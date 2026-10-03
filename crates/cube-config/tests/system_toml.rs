@@ -1,7 +1,6 @@
-//! Tests for `cube_config::system::SystemConfig` parsing (SDS §6.4).
+//! Tests for `cube_config::system::SystemConfig` parsing.
 //!
-//! These are RED tests authored in Wave 2: the production code does not
-//! exist yet. They pin the parsing surface against the verbatim SDS §6.4
+//! These tests pin the parsing surface against the verbatim
 //! example fixture stored at `tests/fixtures/system_full.toml`.
 
 use std::path::PathBuf;
@@ -17,9 +16,9 @@ fn fixture(name: &str) -> PathBuf {
 }
 
 #[test]
-fn system_toml_parses_full_example_sds_6_4() {
+fn system_toml_parses_full_example() {
     let path = fixture("system_full.toml");
-    let (cfg, report) = load_system(&path).expect("SDS §6.4 fixture must parse");
+    let (cfg, report) = load_system(&path).expect(" fixture must parse");
 
     // Display
     assert_eq!(cfg.display.drm_driver, "cube-fpga-rpispi");
@@ -28,14 +27,14 @@ fn system_toml_parses_full_example_sds_6_4() {
     assert_eq!(cfg.display.refresh_hz, 60);
     assert_eq!(cfg.display.spi_clock_hz, 35_000_000);
 
-    // Remote render (SDS v5 §6.4)
+    // Remote render
     assert!(cfg.remote_render.enabled);
     assert_eq!(cfg.remote_render.bind, "127.0.0.1");
     assert_eq!(cfg.remote_render.port, 2017);
     assert_eq!(cfg.remote_render.mtu_hint, "jumbo_recommended");
 
-    // Input — the §6.4 example uses the (now deprecated) legacy name pattern;
-    // it still parses, and cube-gamepad Phase 3 (M8) folds it into `device_allow`
+    // Input — the example uses the (now deprecated) legacy name pattern;
+    // it still parses, and loading folds it into `device_allow`
     // and surfaces an `INPUT_DEPRECATED_NAME_PATTERN` warning (asserted below).
     assert_eq!(
         cfg.input.system_controller_name_pattern.as_deref(),
@@ -61,7 +60,7 @@ fn system_toml_parses_full_example_sds_6_4() {
     // Power
     assert_eq!(cfg.power.idle_blank_after_sec, 0);
 
-    // Apps (SDS v6 §1/§7.2): the fixture has no [apps] table, so
+    // Apps: the fixture has no [apps] table, so
     // max_resident must default to 1 (v5-equivalent behaviour).
     assert_eq!(cfg.apps.max_resident, 1);
 
@@ -69,7 +68,10 @@ fn system_toml_parses_full_example_sds_6_4() {
     // bind is safe). The fixture's legacy `system_controller_name_pattern` does
     // trigger the one-time `INPUT_DEPRECATED_NAME_PATTERN` deprecation warning.
     assert!(
-        report.warnings.iter().all(|w| w.code != "NETWORK_PUBLIC_BIND"),
+        report
+            .warnings
+            .iter()
+            .all(|w| w.code != "NETWORK_PUBLIC_BIND"),
         "loopback bind must not warn about public exposure, got {:?}",
         report.warnings,
     );
@@ -181,7 +183,7 @@ capture_on_present = \"/tmp/cube_fb.bin\"
 }
 
 #[test]
-fn system_toml_missing_required_field_errors_sds_6_4() {
+fn system_toml_missing_required_field_errors() {
     // Drop `display.drm_driver` (a required key) and expect ConfigError::Parse.
     let body = "\
 [display]
@@ -231,7 +233,7 @@ idle_blank_after_sec = 0
 }
 
 #[test]
-fn system_toml_malformed_toml_errors_sds_6_4() {
+fn system_toml_malformed_toml_errors() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("system.toml");
     std::fs::write(&p, "this is = = not toml [\n").unwrap();
@@ -247,7 +249,7 @@ fn system_toml_malformed_toml_errors_sds_6_4() {
 }
 
 #[test]
-fn system_toml_missing_file_errors_sds_6_4() {
+fn system_toml_missing_file_errors() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("does-not-exist.toml");
 
@@ -259,7 +261,7 @@ fn system_toml_missing_file_errors_sds_6_4() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SDS v6 §1/§7.2: `[apps] max_resident`
+//: `[apps] max_resident`
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn write(toml: &str) -> PathBuf {
@@ -270,18 +272,18 @@ fn write(toml: &str) -> PathBuf {
     p
 }
 
-/// SDS v6 §1: a missing `[apps]` table defaults `max_resident` to `1`
+///: a missing `[apps]` table defaults `max_resident` to `1`
 /// (reproduces v5's implicit single-foreground behaviour).
 #[test]
-fn system_toml_apps_table_absent_defaults_max_resident_one_sds_6_4() {
+fn system_toml_apps_table_absent_defaults_max_resident_one() {
     let path = fixture("system_full.toml");
     let (cfg, _report) = load_system(&path).expect("fixture must parse");
     assert_eq!(cfg.apps.max_resident, 1);
 }
 
-/// SDS v6 §1: an explicit `[apps] max_resident` value is honoured.
+///: an explicit `[apps] max_resident` value is honoured.
 #[test]
-fn system_toml_apps_max_resident_explicit_value_sds_6_4() {
+fn system_toml_apps_max_resident_explicit_value() {
     let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
     let body = format!("{base}\n[apps]\nmax_resident = 3\n");
     let p = write(&body);
@@ -291,10 +293,10 @@ fn system_toml_apps_max_resident_explicit_value_sds_6_4() {
     assert!(report.errors.is_empty());
 }
 
-/// SDS v6 §1: `[apps] max_resident = 0` is invalid (every cube must run at
+///: `[apps] max_resident = 0` is invalid (every cube must run at
 /// least one app).
 #[test]
-fn system_toml_apps_max_resident_zero_is_error_sds_6_4() {
+fn system_toml_apps_max_resident_zero_is_error() {
     let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
     let body = format!("{base}\n[apps]\nmax_resident = 0\n");
     let p = write(&body);
@@ -319,7 +321,7 @@ fn system_toml_apps_max_resident_zero_is_error_sds_6_4() {
 // Two new `[apps]` keys, both with serde defaults so existing `system.toml`
 // files (and an `[apps]` table that only sets `max_resident`) keep parsing:
 //   - `allow_remote_install` (bool, default `true`)  — gates the apt_install verb
-//   - `preview_timeout_secs`  (u32,  default `15`)    — on-cube preview auto-hide
+//   - `preview_timeout_secs` (u32,  default `15`)    — on-cube preview auto-hide
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// App-store M1: a config with no `[apps]` table defaults the two new keys to
@@ -349,8 +351,14 @@ fn system_toml_apps_install_preview_default_when_keys_omitted_appstore() {
 
     let (cfg, _report) = load_system(&p).expect("[apps] with only max_resident must parse");
     assert_eq!(cfg.apps.max_resident, 2);
-    assert!(cfg.apps.allow_remote_install, "omitted key defaults to true");
-    assert_eq!(cfg.apps.preview_timeout_secs, 15, "omitted key defaults to 15");
+    assert!(
+        cfg.apps.allow_remote_install,
+        "omitted key defaults to true"
+    );
+    assert_eq!(
+        cfg.apps.preview_timeout_secs, 15,
+        "omitted key defaults to 15"
+    );
 }
 
 /// App-store M1: explicit `allow_remote_install` / `preview_timeout_secs` values
@@ -365,8 +373,14 @@ fn system_toml_apps_install_preview_explicit_values_appstore() {
 
     let (cfg, report) = load_system(&p).expect("explicit [apps] keys must parse");
     assert_eq!(cfg.apps.max_resident, 3);
-    assert!(!cfg.apps.allow_remote_install, "explicit false must be honoured");
-    assert_eq!(cfg.apps.preview_timeout_secs, 30, "explicit 30 must be honoured");
+    assert!(
+        !cfg.apps.allow_remote_install,
+        "explicit false must be honoured"
+    );
+    assert_eq!(
+        cfg.apps.preview_timeout_secs, 30,
+        "explicit 30 must be honoured"
+    );
     assert!(report.errors.is_empty());
 }
 
@@ -386,7 +400,7 @@ fn apps_config_serde_round_trip_appstore() {
     assert_eq!(parsed.preview_timeout_secs, original.preview_timeout_secs);
 }
 
-/// App-store M1: `AppsConfig::default()` yields all three documented defaults.
+/// App-store M1: `AppsConfig::default` yields all three documented defaults.
 #[test]
 fn apps_config_default_values_appstore() {
     let d = AppsConfig::default();
@@ -396,7 +410,7 @@ fn apps_config_default_values_appstore() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// cube-gamepad Phase 3 (M8): capability-discovery `[input]` policy fields
+// Capability-discovery `[input]` policy fields
 //
 // Discovery is capability-based; `system_controller_name_pattern` is demoted to
 // an optional deprecated alias and `device_allow` / `device_deny` /
@@ -440,7 +454,7 @@ idle_blank_after_sec = 0
     write(&body)
 }
 
-/// Phase 3 (M8): an `[input]` block that omits the deprecated
+/// an `[input]` block that omits the deprecated
 /// `system_controller_name_pattern` parses, and the alias reads back as `None`.
 #[test]
 fn system_toml_parses_without_legacy_pattern_phase3() {
@@ -455,7 +469,7 @@ key_power = \"Guide\"",
     assert!(report.errors.is_empty());
 }
 
-/// Phase 3 (M8): `device_allow` / `device_deny` / `max_players` carry serde
+/// `device_allow` / `device_deny` / `max_players` carry serde
 /// defaults, so an `[input]` block omitting them is valid and yields the
 /// documented defaults (empty lists, `max_players = 8`).
 #[test]
@@ -480,7 +494,7 @@ key_power = \"Guide\"",
     assert_eq!(cfg.input.max_players, 8, "max_players defaults to 8");
 }
 
-/// Phase 3 (M8): explicit `device_allow` / `device_deny` / `max_players` values
+/// explicit `device_allow` / `device_deny` / `max_players` values
 /// are honoured (entries may be VID:PID or name-glob; here both forms appear).
 #[test]
 fn system_toml_policy_fields_explicit_values_phase3() {
