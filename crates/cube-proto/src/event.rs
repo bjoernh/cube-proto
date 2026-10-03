@@ -330,7 +330,7 @@ pub enum Event {
     /// per-device id (the BT HW address / evdev `uniq`, falling back to
     /// `ID_PATH`/`phys`) that differs between two identical-model pads, so a
     /// client can map each physical controller to its slot unambiguously
-    ///; omitted when the device surfaced no stable id. Backs
+    /// Omitted when the device surfaced no stable id. Backs
     /// the companion's controller roster and per-player "Player N joined" UI; it
     /// is also the wire source for `cubekit`'s `RawEvent::Connected(true)`.
     #[serde(rename = "input.player_connected")]

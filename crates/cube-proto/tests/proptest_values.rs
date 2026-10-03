@@ -90,7 +90,7 @@ proptest! {
         prop_assert_eq!(p, p2);
     }
 
-    ///: `focus.lost {reason}` round-trips for every
+    /// `focus.lost {reason}` round-trips for every
     /// `FocusLostReason` value (`app_switch | home | stopping`).
     #[test]
     fn focus_lost_reason_roundtrip(idx in 0usize..3) {

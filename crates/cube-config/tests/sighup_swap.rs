@@ -1,6 +1,6 @@
 //! Tests for `cube_config::SystemConfigHandle` atomic swap.
 //!
-//!: "Reads `/etc/cube/system.toml` once at startup into an
+//! "Reads `/etc/cube/system.toml` once at startup into an
 //! `Arc<SystemConfig>`. On SIGHUP, re-reads and atomically swaps the Arc.
 //! Modules that need config snapshot the Arc on demand." A reader that
 //! already holds an Arc snapshot must continue to see the *old* values even

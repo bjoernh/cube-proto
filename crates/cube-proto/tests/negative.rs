@@ -287,7 +287,7 @@ fn realistic_wire_messages_fit_under_limit() {
 
 #[test]
 fn ebadreq_is_the_canonical_oversize_code() {
-    //: "Messages exceeding the limit return EBADREQ."
+    // "Messages exceeding the limit return EBADREQ."
     // The implementation agent must make `enforce_max_size`'s error carry
     // or be representable as EBADREQ. This test pins the variant exists.
     let _ = CubeErrno::EBADREQ;

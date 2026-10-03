@@ -83,7 +83,7 @@ fn manifest_to_toml_is_stable_and_sorted() {
     assert!(!a.contains("icon"), "absent icon is not emitted:\n{a}");
 }
 
-///: the four metadata fields (`accent`/`description`/`preview`/
+/// The four metadata fields (`accent`/`description`/`preview`/
 /// `players`) emit and round-trip through the loader. `players` emits as an
 /// inline table `{ min, max }`.
 #[test]
@@ -131,9 +131,8 @@ fn manifest_to_toml_round_trips_the_a1_metadata_fields() {
     assert_eq!(back.app.players, Some(Players { min: 1, max: 1 }));
 }
 
-///: `cubego` is the third alternative SDK-compat field — it emits
-/// and round-trips through the loader exactly like `libcube`/`cubekit`
-///.
+/// `cubego` is the third alternative SDK-compat field — it emits
+/// and round-trips through the loader exactly like `libcube`/`cubekit`.
 #[test]
 fn manifest_to_toml_round_trips_the_cubego_sdk_requirement() {
     let mut m = sample_manifest();
@@ -159,7 +158,7 @@ fn manifest_to_toml_round_trips_the_cubego_sdk_requirement() {
     assert!(req.cubekit.is_none());
 }
 
-///: all four fields are omitted from emitted TOML when unset.
+/// All four fields are omitted from emitted TOML when unset.
 #[test]
 fn manifest_to_toml_omits_absent_a1_metadata_fields() {
     let a = manifest_to_toml(&sample_manifest());

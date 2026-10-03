@@ -102,7 +102,7 @@ pub struct AppSection {
 
 /// `[requires]` section of a `manifest.toml`.
 ///
-///: `libcube`, `cubekit` and `cubego` are alternative
+/// `libcube`, `cubekit` and `cubego` are alternative
 /// SDK-compatibility fields — an app declares **exactly one**, matching the
 /// SDK it links (C++, Rust and Go respectively). This is enforced by
 /// [`load_manifest`] only when a `[requires]` table is present at all; a
@@ -161,17 +161,17 @@ struct RawApp {
     category: ManifestCategory,
     #[serde(default)]
     icon: Option<String>,
-    ///: optional; unknown token fails deserialization (closed
+    /// Optional; unknown token fails deserialization (closed
     /// set), surfaced as a `ConfigError::Parse` by the loader.
     #[serde(default)]
     accent: Option<Accent>,
-    ///: optional short blurb.
+    /// Optional short blurb.
     #[serde(default)]
     description: Option<String>,
-    ///: optional preview filename.
+    /// Optional preview filename.
     #[serde(default)]
     preview: Option<String>,
-    ///: optional inline `{ min, max }`; validated by the loader.
+    /// Optional inline `{ min, max }`; validated by the loader.
     #[serde(default)]
     players: Option<Players>,
 }
@@ -188,14 +188,14 @@ struct RawRequires {
     inputs: Vec<String>,
     #[serde(default)]
     sensors: Vec<String>,
-    ///: optional, default `false`.
+    /// Optional, default `false`.
     #[serde(default)]
     network: bool,
 }
 
 #[derive(Deserialize)]
 struct RawPower {
-    ///: optional, default `false`.
+    /// Optional, default `false`.
     #[serde(default)]
     idle_blank: bool,
 }
@@ -203,7 +203,7 @@ struct RawPower {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawOverlay {
-    ///: optional, default `false`. A non-bool value (e.g.
+    /// Optional, default `false`. A non-bool value (e.g.
     /// `provides = "yes"`) is rejected by the loader (the bug `cubectl doctor`
     /// must surface —), as is any unknown key under `[overlay]`.
     #[serde(default)]
@@ -387,7 +387,7 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
         ))
     })?;
 
-    //: validate `players` when present (min >= 1, min <= max).
+    // Validate `players` when present (min >= 1, min <= max).
     // (An invalid `accent` token is already rejected earlier by the closed
     // enum during `toml::from_str`, surfaced as `ConfigError::Parse`.)
     if let Some(players) = raw.app.players {
@@ -420,7 +420,7 @@ fn load_manifest_inner(path: &Path) -> Result<Manifest, ConfigError> {
     let requires = raw
         .requires
         .map(|r| {
-            //: `libcube`, `cubekit` and `cubego` are alternative
+            // `libcube`, `cubekit` and `cubego` are alternative
             // SDK-compatibility fields — exactly one must be declared when
             // `[requires]` is present at all.
             let declared = usize::from(r.libcube.is_some())

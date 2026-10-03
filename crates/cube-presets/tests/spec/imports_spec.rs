@@ -95,7 +95,7 @@ fn eversion_error_message_mentions_both_versions() {
     );
 }
 
-///: "v1 deliberately has no migration mechanism". Pin the variant
+/// "v1 deliberately has no migration mechanism". Pin the variant
 /// name to flag any accidental introduction of a `Migrated` warning code.
 #[test]
 fn no_migration_warning_variant_exists() {

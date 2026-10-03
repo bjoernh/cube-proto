@@ -79,7 +79,7 @@ fn save_emits_write_fsync_rename_fsync_parent() {
     );
 }
 
-///:
+///
 ///
 /// > Both parties acquire an exclusive `flock` on this file...
 /// > The lock is released as soon as the atomic-rename completes.

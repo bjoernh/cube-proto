@@ -177,10 +177,10 @@ fn manifest_accepts_all_known_categories() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//: `[requires] network`, `libcube`/`cubekit` XOR, `[power]` table
+// `[requires] network`, `libcube`/`cubekit` XOR, `[power]` table
 // ─────────────────────────────────────────────────────────────────────────────
 
-///: a missing `network` key in `[requires]` defaults to `false`.
+/// A missing `network` key in `[requires]` defaults to `false`.
 #[test]
 fn manifest_requires_network_defaults_false() {
     let p = write(SNAKE);
@@ -192,7 +192,7 @@ fn manifest_requires_network_defaults_false() {
     );
 }
 
-///: `[requires] network = true` is honoured.
+/// `[requires] network = true` is honoured.
 #[test]
 fn manifest_requires_network_true() {
     let body = SNAKE.replace(
@@ -208,7 +208,7 @@ fn manifest_requires_network_true() {
     );
 }
 
-///: `[requires] cubekit = "..."` is a valid alternative to
+/// `[requires] cubekit = "..."` is a valid alternative to
 /// `libcube` — exactly one SDK-compatibility field is required.
 #[test]
 fn manifest_requires_cubekit_only_is_ok() {
@@ -234,7 +234,7 @@ sensors = []
     assert!(requires.libcube.is_none());
 }
 
-///: `[requires] cubego = "..."` is the third valid alternative
+/// `[requires] cubego = "..."` is the third valid alternative
 /// (the Go SDK) — exactly one SDK-compatibility field is required.
 #[test]
 fn manifest_requires_cubego_only_is_ok() {
@@ -261,7 +261,7 @@ sensors = []
     assert!(requires.cubekit.is_none());
 }
 
-///: `cubego` is mutually exclusive with the other two SDK-compat
+/// `cubego` is mutually exclusive with the other two SDK-compat
 /// fields — declaring it alongside `cubekit` is rejected.
 #[test]
 fn manifest_requires_both_cubekit_and_cubego_is_error() {
@@ -274,7 +274,7 @@ fn manifest_requires_both_cubekit_and_cubego_is_error() {
     assert!(matches!(err, ConfigError::Parse { .. }));
 }
 
-///: declaring both `libcube` and `cubekit` is an error — exactly
+/// Declaring both `libcube` and `cubekit` is an error — exactly
 /// one SDK-compatibility field must be present when `[requires]` exists.
 #[test]
 fn manifest_requires_both_libcube_and_cubekit_is_error() {
@@ -287,7 +287,7 @@ fn manifest_requires_both_libcube_and_cubekit_is_error() {
     assert!(matches!(err, ConfigError::Parse { .. }));
 }
 
-///: `[requires]` present but neither `libcube` nor `cubekit`
+/// `[requires]` present but neither `libcube` nor `cubekit`
 /// declared is an error.
 #[test]
 fn manifest_requires_neither_libcube_nor_cubekit_is_error() {
@@ -308,7 +308,7 @@ sensors = []
     assert!(matches!(err, ConfigError::Parse { .. }));
 }
 
-///: a manifest without any `[requires]` table at all remains
+/// A manifest without any `[requires]` table at all remains
 /// valid (v5 compat) — the libcube/cubekit XOR is enforced only when
 /// `[requires]` is present.
 #[test]
@@ -325,7 +325,7 @@ category = \"demo\"
     assert!(m.requires.is_none());
 }
 
-///: optional `[power] idle_blank = true`.
+/// Optional `[power] idle_blank = true`.
 #[test]
 fn manifest_power_table_idle_blank_true() {
     let body = format!("{SNAKE}\n[power]\nidle_blank = true\n");
@@ -335,7 +335,7 @@ fn manifest_power_table_idle_blank_true() {
     assert!(power.idle_blank);
 }
 
-///: optional `[power] idle_blank = false`.
+/// Optional `[power] idle_blank = false`.
 #[test]
 fn manifest_power_table_idle_blank_false() {
     let body = format!("{SNAKE}\n[power]\nidle_blank = false\n");
@@ -345,7 +345,7 @@ fn manifest_power_table_idle_blank_false() {
     assert!(!power.idle_blank);
 }
 
-///: a missing `[power]` table is treated as `idle_blank = false`.
+/// A missing `[power]` table is treated as `idle_blank = false`.
 #[test]
 fn manifest_power_table_absent_defaults_false() {
     let p = write(SNAKE);
@@ -360,7 +360,7 @@ fn manifest_power_table_absent_defaults_false() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//: [app] metadata fields accent / description / preview / players
+// [app] metadata fields accent / description / preview / players
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A `[app]` manifest carrying an accent, a full `[app]` header with the four
@@ -383,7 +383,7 @@ inputs = [\"joystick\"]
 sensors = []
 ";
 
-///: the four metadata fields parse into `AppSection`.
+/// The four metadata fields parse into `AppSection`.
 #[test]
 fn manifest_parses_a1_metadata_fields() {
     let p = write(SNAKE_ENRICHED);
@@ -397,7 +397,7 @@ fn manifest_parses_a1_metadata_fields() {
     assert_eq!(m.app.players, Some(Players { min: 1, max: 2 }));
 }
 
-///: all four metadata fields are optional (absent ⇒ None).
+/// All four metadata fields are optional (absent ⇒ None).
 #[test]
 fn manifest_a1_metadata_fields_are_optional() {
     let p = write(SNAKE);
@@ -408,7 +408,7 @@ fn manifest_a1_metadata_fields_are_optional() {
     assert!(m.app.players.is_none());
 }
 
-///: `accent` accepts every token of the closed canonical palette.
+/// `accent` accepts every token of the closed canonical palette.
 #[test]
 fn manifest_accepts_all_known_accents() {
     let cases = [
@@ -432,7 +432,7 @@ fn manifest_accepts_all_known_accents() {
     }
 }
 
-///: an unknown `accent` token is rejected via the closed enum,
+/// An unknown `accent` token is rejected via the closed enum,
 /// surfaced as `ConfigError::Parse` (never a panic) so `cubectl doctor` sees it.
 #[test]
 fn manifest_rejects_unknown_accent_token() {
@@ -448,7 +448,7 @@ fn manifest_rejects_unknown_accent_token() {
     );
 }
 
-///: `players` with `min > max` is rejected by the loader.
+/// `players` with `min > max` is rejected by the loader.
 #[test]
 fn manifest_rejects_players_min_gt_max() {
     let body = SNAKE.replace(
@@ -467,7 +467,7 @@ fn manifest_rejects_players_min_gt_max() {
     );
 }
 
-///: `players` with `min < 1` is rejected by the loader.
+/// `players` with `min < 1` is rejected by the loader.
 #[test]
 fn manifest_rejects_players_min_below_one() {
     let body = SNAKE.replace(
@@ -486,7 +486,7 @@ fn manifest_rejects_players_min_below_one() {
     );
 }
 
-///: `players` with `min == max` (a fixed count) is accepted.
+/// `players` with `min == max` (a fixed count) is accepted.
 #[test]
 fn manifest_accepts_players_min_eq_max() {
     let body = SNAKE.replace(

@@ -572,7 +572,7 @@ fn transition_push_roundtrips() {
 
 #[test]
 fn format_argb8888_roundtrips() {
-    //: overlay buffers use ARGB8888 (real alpha for `over`
+    // Overlay buffers use ARGB8888 (real alpha for `over`
     // compositing). The wire token is "ARGB8888". Decode-through `Format` so the
     // test compiles today and fails at runtime until the variant exists.
     let v = json!("ARGB8888");
@@ -618,7 +618,7 @@ fn overlay_text_command_roundtrips() {
 
 #[test]
 fn overlay_clear_command_roundtrips() {
-    //: {"id":51,"cmd":"overlay.clear","z":1}.
+    // {"id":51,"cmd":"overlay.clear","z":1}.
     let j = json!({"id": 52, "cmd": "overlay.clear", "z": 1});
     roundtrip_request(&j);
 
@@ -1587,7 +1587,7 @@ fn overlay_dismiss_reason_unknown_is_forward_compatible() {
 
 #[test]
 fn present_with_layer_field_roundtrips() {
-    //: `present` gains an optional `layer` selecting which compositor
+    // `present` gains an optional `layer` selecting which compositor
     // layer the buffer updates. `layer:7` targets an acquired overlay layer:
     //   {"id":41,"cmd":"present","seq":1,"buffer_id":2,"layer":7}
     let to_overlay = json!({
@@ -1614,7 +1614,7 @@ fn present_with_layer_field_roundtrips() {
 
 #[test]
 fn eperm_error_roundtrips() {
-    //: `overlay.acquire` from a client without overlay
+    // `overlay.acquire` from a client without overlay
     // capability returns EPERM. The closed `CubeErrno` set must gain
     // the `EPERM` variant; it serializes to/from its uppercase name.
     let code: cube_proto::CubeErrno =

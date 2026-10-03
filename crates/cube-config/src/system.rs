@@ -155,12 +155,10 @@ fn default_max_players() -> u8 {
 }
 
 impl InputConfig {
-    /// The standard local profiles directory used when `profiles_dir` is unset
-    ///.
+    /// The standard local profiles directory used when `profiles_dir` is unset.
     pub const DEFAULT_PROFILES_DIR: &'static str = "/etc/cube/gamepad-profiles";
 
-    /// Default maximum number of player slots when `max_players` is absent
-    ///.
+    /// Default maximum number of player slots when `max_players` is absent.
     pub const DEFAULT_MAX_PLAYERS: u8 = 8;
 
     /// The configured local profiles directory, or the standard default when
@@ -280,7 +278,7 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
         message: e.to_string(),
     })?;
 
-    //: `[apps] max_resident` must be at least 1 — every cube runs
+    // `[apps] max_resident` must be at least 1 — every cube runs
     // at least one (foreground) app.
     if cfg.apps.max_resident == 0 {
         return Err(ConfigError::Parse {
@@ -314,7 +312,7 @@ pub fn load_system(path: &Path) -> Result<(SystemConfig, ValidationReport), Conf
 fn validate_system(cfg: &SystemConfig) -> ValidationReport {
     let mut report = ValidationReport::default();
 
-    //: warn when bind is not a loopback address (i.e. exposed on the LAN).
+    // Warn when bind is not a loopback address (i.e. exposed on the LAN).
     let loopback_prefixes = ["127.", "::1"];
     let is_loopback = |addr: &str| loopback_prefixes.iter().any(|p| addr.starts_with(p));
 

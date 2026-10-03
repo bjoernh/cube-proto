@@ -261,7 +261,7 @@ fn system_toml_missing_file_errors() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//: `[apps] max_resident`
+// `[apps] max_resident`
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn write(toml: &str) -> PathBuf {
@@ -272,7 +272,7 @@ fn write(toml: &str) -> PathBuf {
     p
 }
 
-///: a missing `[apps]` table defaults `max_resident` to `1`
+/// A missing `[apps]` table defaults `max_resident` to `1`
 /// (reproduces v5's implicit single-foreground behaviour).
 #[test]
 fn system_toml_apps_table_absent_defaults_max_resident_one() {
@@ -281,7 +281,7 @@ fn system_toml_apps_table_absent_defaults_max_resident_one() {
     assert_eq!(cfg.apps.max_resident, 1);
 }
 
-///: an explicit `[apps] max_resident` value is honoured.
+/// An explicit `[apps] max_resident` value is honoured.
 #[test]
 fn system_toml_apps_max_resident_explicit_value() {
     let base = std::fs::read_to_string(fixture("system_full.toml")).unwrap();
@@ -293,7 +293,7 @@ fn system_toml_apps_max_resident_explicit_value() {
     assert!(report.errors.is_empty());
 }
 
-///: `[apps] max_resident = 0` is invalid (every cube must run at
+/// `[apps] max_resident = 0` is invalid (every cube must run at
 /// least one app).
 #[test]
 fn system_toml_apps_max_resident_zero_is_error() {
